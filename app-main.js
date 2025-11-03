@@ -34,9 +34,9 @@ function getTrackPageData(allActivities, allPlannerItems, allLogs, timeRange, se
             id: id,
             type: 'goal',
             name: act.name,
-            icon: act.emoji || '📅', 
+            icon: act.emoji || '套', 
             color: act.color,
-            categoryId: act.categoryId,
+            categoryId: act.categoryId || 'uncategorized',
             goal: act.goal,
             trackedMs: 0, // Will be calculated below
             isCompleted: false, 
@@ -57,7 +57,7 @@ function getTrackPageData(allActivities, allPlannerItems, allLogs, timeRange, se
             name: item.name,
             icon: icon, 
             color: color,
-            categoryId: null, 
+            categoryId: item.categoryId || 'uncategorized',
             targetHours: item.targetHours || 0,
             trackedMs: item.trackedDurationMs || 0,
             isCompleted: item.isCompleted || false,
@@ -66,6 +66,7 @@ function getTrackPageData(allActivities, allPlannerItems, allLogs, timeRange, se
             dueDate: item.dueDate,
             dueTime: item.dueTime,
             notes: item.notes,
+            notifyDays: item.notifyDays || 'none',
             sortOrder: item.createdAt,
             isTrackable: itemType === 'task', 
         });
@@ -98,22 +99,22 @@ function getTrackPageData(allActivities, allPlannerItems, allLogs, timeRange, se
             return false;
         }
 
-        // 6b. Filter by Category or Activity (Goals only)
-        if (item.type === 'goal') {
-            const categoryId = item.categoryId || 'uncategorized';
+        // 6b. Filter by Category or Activity
+        const filterBy = filters.filterBy || 'categories';
+        const categoryId = item.categoryId || 'uncategorized';
 
+        if (filterBy === 'categories') {
             const categoryMatch = filters.categories.length === 0 || filters.categories.includes(categoryId);
-            const activityMatch = filters.activities.length === 0 || filters.activities.includes(item.id);
-            
-            // If filters are specified, the item must match one in both selected categories AND activities.
-            // If a filter list is empty, it means 'show all' for that list.
-            
-            if (filters.categories.length > 0 && !categoryMatch) return false;
-            if (filters.activities.length > 0 && !activityMatch) return false;
+            if (!categoryMatch) return false;
+        } else { // filterBy === 'activities'
+            // This filter only applies to goals
+            if (item.type === 'goal') {
+                if (filters.activities[0] === 'NONE') return false; // NONE selected
+                const activityMatch = filters.activities.length === 0 || filters.activities.includes(item.id);
+                if (!activityMatch) return false;
+            }
         }
         
-        // Tasks and Deadlines are filtered by type only 
-
         return true;
     });
 
@@ -127,20 +128,27 @@ function renderTrackItem(item) {
     const isGoal = item.type === 'goal';
     const isTask = item.type === 'task';
     const isDeadline = item.type === 'deadline';
-    
-    // For Goals/Activities, icon is emoji. For Tasks/Deadlines, it's a bi-icon string.
-    const iconContent = isGoal ? item.icon : `<i class="bi ${item.icon}"></i>`;
-    const itemTypeLabel = isGoal ? 'Goal' : (isTask ? 'Task' : 'Deadline');
-    const itemColor = isGoal ? item.color : (isTask ? '#3B82F6' : '#DC3545'); // Use fixed colors for tasks/deadlines
+    const now = new Date();
+    const today = getStartOfDate(now);
+
+    // --- Category Info ---
+    const category = categories.get(item.categoryId) || { name: 'Uncategorized', color: '#808080', iconName: 'bi-tag-fill' };
+    const mainIconContent = `<i class="bi ${category.iconName}"></i>`;
+    const mainIconColor = category.color;
+
+    // --- Type Icon & Color ---
+    let secondaryIconClass = 'bi-bullseye'; // Goal
+    let secondaryIconColor = '#3b82f6'; // Blue
+    let itemBorderColor = secondaryIconColor;
+    let dateText = '';
     
     // --- Progress Calculation ---
     let progressPercent = 0;
     let progressText = '';
-    let isOverdue = false;
+    let isOverdue = false; // For styling
     
     if (isGoal) {
         const goalValue = item.goal?.value || 0;
-        // Use total trackedMs (from plannerItem or calculated here)
         const trackedHours = item.trackedMs / 3600000; 
         if (goalValue > 0) {
             progressPercent = Math.min(100, (trackedHours / goalValue) * 100);
@@ -148,66 +156,116 @@ function renderTrackItem(item) {
         } else {
             progressText = `${formatShortDuration(item.trackedMs)} tracked`;
         }
+        dateText = category.name; // Show category name for goals
     } else if (isTask) {
+        secondaryIconClass = 'bi-check2-square';
+        const dueDate = item.dueDate ? getStartOfDate(new Date(item.dueDate)) : null;
+        const notifyDaysVal = (item.notifyDays === 'none' || item.notifyDays === '0') ? 0 : parseInt(item.notifyDays, 10);
+
+        if (dueDate) {
+            const daysDiff = (dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+            if (daysDiff < 0) {
+                isOverdue = true;
+                secondaryIconColor = '#dc3545'; // red
+            } else if (daysDiff < notifyDaysVal) {
+                secondaryIconColor = '#ffc107'; // yellow
+            } else {
+                secondaryIconColor = '#198754'; // green
+            }
+            dateText = `Due: ${_formatDate(dueDate)}`;
+        } else {
+            secondaryIconColor = '#198754'; // green (no due date)
+            dateText = 'Task';
+        }
+
         const targetHours = item.targetHours || 0;
         const trackedHours = item.trackedMs / 3600000;
         if (targetHours > 0) {
             progressPercent = Math.min(100, (trackedHours / targetHours) * 100);
-            progressText = `Tracked: ${trackedHours.toFixed(1)}h / ${targetHours}h`;
+            progressText = `${trackedHours.toFixed(1)}h / ${targetHours}h`;
         } else {
-            progressText = `Tracked: ${formatShortDuration(item.trackedMs)}`;
+            progressText = `${formatShortDuration(item.trackedMs)} tracked`;
         }
     } else if (isDeadline) {
-        const due = new Date(`${item.dueDate}T${item.dueTime || '23:59:59'}`);
-        if (due.getTime() < Date.now()) {
+        secondaryIconClass = 'bi-calendar-x';
+        const dueDate = item.dueDate ? getStartOfDate(new Date(item.dueDate)) : today;
+        const notifyDaysVal = (item.notifyDays === 'none' || item.notifyDays === '0') ? 0 : parseInt(item.notifyDays, 10);
+        const daysDiff = (dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+
+        if (daysDiff < 0) {
             isOverdue = true;
-            // NOTE: _formatDate is now in core.js
-            progressText = `Due: ${_formatDate(item.dueDate)} - OVERDUE`;
+            secondaryIconColor = '#dc3545'; // red
+        } else if (daysDiff < notifyDaysVal) {
+            secondaryIconColor = '#ffc107'; // yellow
         } else {
-            progressText = `Due: ${_formatDate(item.dueDate)} at ${item.dueTime || '23:59'}`;
+            secondaryIconColor = '#198754'; // green
         }
+        dateText = `Due: ${_formatDate(dueDate)} at ${item.dueTime || '23:59'}`;
+        progressText = item.notes || 'No notes';
+    }
+
+    itemBorderColor = secondaryIconColor;
+    // Special case: if task/deadline is completed, override icon
+    if ((isTask || isDeadline) && item.isCompleted) {
+        secondaryIconClass = 'bi-check-lg';
+        secondaryIconColor = '#198754'; // Always green when done
     }
 
     const startBtnDisabled = currentTimer && currentTimer.activityId !== item.id;
     const completedClass = item.isCompleted ? 'opacity-50' : '';
-    const overdueClass = isOverdue ? 'overdue' : '';
+    const overdueClass = isOverdue && !item.isCompleted ? 'overdue' : ''; // CSS class for overdue items (e.g., red text)
 
     return `
-        <div class="track-item ${overdueClass} ${completedClass}" data-id="${item.id}" data-type="${item.type}">
+        <div class="track-item ${overdueClass} ${completedClass}" data-id="${item.id}" data-type="${item.type}" style="--item-border-color: ${itemBorderColor};">
             <!-- Clickable item body -->
             <div class="track-item-main cursor-pointer p-0 m-0 w-full">
                 <!-- Icon Badge Container -->
                 <div class="icon-badge-container">
-                    <div class="icon-badge-main" style="background-color: ${itemColor}; color: white;">
-                        ${iconContent}
+                    <div class="icon-badge-main" style="background-color: ${mainIconColor}; color: white;">
+                        ${mainIconContent}
                     </div>
-                    <!-- Secondary badge for specific types if needed -->
-                    ${isTask && item.isCompleted ? `
-                        <div class="icon-badge-secondary bg-green-600">
-                            <i class="bi bi-check-lg"></i>
-                        </div>
-                    ` : ''}
+                    <div class="icon-badge-secondary" style="background-color: ${secondaryIconColor};">
+                        <i class="bi ${secondaryIconClass}"></i>
+                    </div>
                 </div>
                 
                 <div class="track-item-details flex-grow">
-                    <h4 title="${item.name}">${item.name} <span class="text-xs font-normal text-gray-500">(${itemTypeLabel})</span></h4>
-                    <p>${progressText}</p>
+                    <h4 title="${item.name}">${item.name}</h4>
+                    <p>${dateText}</p>
                     ${!isDeadline ? `
                         <div class="track-item-progress-bar">
-                            <div class="track-item-progress-fill" style="width: ${progressPercent}%; background-color: ${itemColor}"></div>
+                            <div class="track-item-progress-fill" style="width: ${progressPercent}%; background-color: ${mainIconColor}"></div>
                         </div>
-                    ` : ''}
+                        <p class="text-xs mt-1">${progressText}</p>
+                    ` : `<p class="text-xs mt-1 truncate">${progressText}</p>`}
                 </div>
             </div>
             
-            <!-- Start/Stop Button Only -->
+            <!-- Action Button -->
             <div class="track-item-actions flex-shrink-0">
-                ${item.isTrackable ? `
-                    <button class="track-item-action-btn start" data-id="${item.id}" data-name="${item.name}" data-color="${itemColor}" data-type="${item.type}" ${startBtnDisabled ? 'disabled' : ''} title="Start Timer">
-                        <i class="bi bi-play-fill text-xl"></i>
-                    </button>
+                ${(isGoal || (isTask && !item.isCompleted)) ? `
+                    ${(currentTimer && currentTimer.activityId === item.id) ? `
+                        <button class="track-item-action-btn stop" title="Stop Timer">
+                            <i class="bi bi-stop-fill text-xl"></i>
+                        </button>
+                    ` : `
+                        <button class="track-item-action-btn start" data-id="${item.id}" data-name="${item.name}" data-color="${isGoal ? item.color : '#808080'}" data-type="${item.type}" ${startBtnDisabled ? 'disabled' : ''} title="Start Timer">
+                            <i class="bi bi-play-fill text-xl"></i>
+                        </button>
+                    `}
                 ` : ''}
-                <!-- REMOVED EDIT/DELETE BUTTONS PER USER REQUEST -->
+
+                ${(isDeadline || (isTask && item.isCompleted)) ? `
+                    ${item.isCompleted ? `
+                        <button class="track-item-action-btn undone" title="Mark as Undone">
+                            <i class="bi bi-x-lg text-xl"></i>
+                        </button>
+                    ` : `
+                        <button class="track-item-action-btn done" title="Mark as Done">
+                            <i class="bi bi-check-lg text-xl"></i>
+                        </button>
+                    `}
+                ` : ''}
             </div>
         </div>
     `;
@@ -259,6 +317,14 @@ function renderTrackPage() {
             // Secondary sort: by completion (uncompleted first)
             if (a.isCompleted !== b.isCompleted) {
                 return a.isCompleted ? 1 : -1;
+            }
+            // Tertiary sort: by due date (tasks/deadlines)
+            if (a.type !== 'goal' && b.type !== 'goal') {
+                const aDue = new Date(a.dueDate || a.endDateTime || 0).getTime();
+                const bDue = new Date(b.dueDate || b.endDateTime || 0).getTime();
+                if (aDue !== bDue) {
+                    return aDue - bDue; // Earlier due dates first
+                }
             }
             // Tertiary sort: by original creation date/order
             return (b.sortOrder || 0) - (a.sortOrder || 0); 
@@ -327,7 +393,7 @@ function stopTimer(e) {
             activityName: currentTimer.activityName,
             activityColor: currentTimer.activityColor,
             timerType: currentTimer.timerType,
-            startTime: Date.now(),
+            startTime: currentTimer.startTime, // Use the original start time
             endTime: Date.now(),
             durationMs: Date.now() - currentTimer.startTime
         };
@@ -340,6 +406,7 @@ function stopTimer(e) {
         setTimeout(() => {
             timerBanner.classList.remove('active', 'closing');
             showStopNoteModal();
+            renderHomePage(); // Re-enable start button on home page
             renderTrackPage(); // Re-enable start button on track page
         }, 250); 
     }
@@ -514,6 +581,9 @@ function handleViewToggle() {
 // MODIFIED: Simplified handler to remove explicit edit/delete buttons
 function handleTrackListClick(e) {
     const startBtn = e.target.closest('.track-item-action-btn.start');
+    const stopBtn = e.target.closest('.track-item-action-btn.stop');
+    const doneBtn = e.target.closest('.track-item-action-btn.done');
+    const undoneBtn = e.target.closest('.track-item-action-btn.undone');
     const itemEl = e.target.closest('.track-item'); 
 
     if (!itemEl) return;
@@ -525,6 +595,12 @@ function handleTrackListClick(e) {
         // User clicked the Start button
         const { name, color } = startBtn.dataset;
         startTimer(id, name, color, type === 'goal' ? 'activity' : 'task');
+    } else if (stopBtn) {
+        stopTimer();
+    } else if (doneBtn) {
+        handleToggleCompletion(id, true);
+    } else if (undoneBtn) {
+        handleToggleCompletion(id, false);
     } else if (type !== 'log') {
         // User clicked the main item body (Goal, Task, or Deadline)
         // This is the new behavior: click card = open edit modal
@@ -544,9 +620,7 @@ function handleHomeItemClick(e) {
          const type = itemEl.dataset.type;
          if (type === 'task') {
              // Toggle completion
-             // handleToggleCompletion(id); // Needs implementation
-             // MODIFICATION: Replaced window.alert
-             console.log(`Placeholder: Toggle completion for task ${id}`);
+             handleToggleCompletion(id);
          }
      } else if (editBtn) {
          const id = itemEl.dataset.id;
@@ -658,9 +732,26 @@ function handleDeleteActivityFromModal() {
     showDeleteModal();
 }
 
-function handleToggleCompletion(itemId) {
-    // Placeholder for toggling task completion status
-    console.log(`Placeholder: Toggling completion for item ${itemId}`);
+async function handleToggleCompletion(itemId, forceState = null) {
+    if (!userId) return;
+    const item = plannerItems.get(itemId);
+    if (!item || item.type === 'goal') return; // Only for tasks/deadlines
+
+    console.log(`Toggling completion for item ${itemId}`);
+    const newState = (forceState !== null) ? forceState : !item.isCompleted;
+
+    try {
+        await plannerCollection().doc(itemId).update({ isCompleted: newState });
+        item.isCompleted = newState; // Update local cache
+        
+        // Re-render
+        renderTrackPage();
+        if(pages.home.classList.contains('active')) {
+           renderHomePage();
+        }
+    } catch (error) {
+        console.error("Error toggling completion: ", error);
+    }
 }
 
 // --- NEW V24: Render Categories Page ---
@@ -689,15 +780,22 @@ function renderCategoriesPage() {
     const totalsByCategory = new Map();
     let totalTimeMs = 0;
 
+    // NEW: Get filter mode
+    const filterBy = currentCategoriesFilters.filterBy || 'categories';
+
     logsInRange.forEach(log => {
         const activity = activities.get(log.activityId);
         const categoryId = activity?.categoryId || 'uncategorized';
         
         // Apply Category/Activity Filters
-        const categoryMatch = filteredCategories.length === 0 || filteredCategories.includes(categoryId);
-        const activityMatch = filteredActivities.length === 0 || filteredActivities.includes(log.activityId);
-
-        if (!categoryMatch || !activityMatch) return;
+        if (filterBy === 'categories') {
+            const categoryMatch = filteredCategories.length === 0 || filteredCategories.includes(categoryId);
+            if (!categoryMatch) return;
+        } else { // filterBy === 'activities'
+            if (filteredActivities[0] === 'NONE') return; // NONE selected
+            const activityMatch = filteredActivities.length === 0 || filteredActivities.includes(log.activityId);
+            if (!activityMatch) return;
+        }
         
         let currentTotal = totalsByCategory.get(categoryId) || 0;
         currentTotal += log.durationMs;
@@ -1029,7 +1127,7 @@ async function handleConfirmDelete() {
             // If it was a task log, update the trackedDurationMs on the planner item
             if (deletedLog && deletedLog.timerType === 'task') {
                 const taskId = deletedLog.activityId;
-                const durationChange = deletedLog.durationMs;
+                const durationChange = (deletedLog.endTime - deletedLog.startTime); // Recalc duration from log
                 const task = plannerItems.get(taskId);
                 if (task) {
                     const newDuration = Math.max(0, (task.trackedDurationMs || 0) - durationChange);
@@ -1325,7 +1423,7 @@ function calculateActivityTotals(logs) {
         }
         
         const current = categoryTotals.get(categoryId) || { durationMs: 0, name: category.name, color: category.color };
-        current.durationMs += log.durationMs; 
+        current.durationMs += (log.endTime - log.startTime); // Recalc duration
         current.color = category.color; // Ensure color is set from Category object
         categoryTotals.set(categoryId, current);
     });
@@ -1406,7 +1504,7 @@ function renderWeeklyChart(activityLogs, barCtx) {
             entry = { color: color, data: [0, 0, 0, 0, 0, 0, 0] };
             dataByActivity.set(activityName, entry);
         }
-        entry.data[dayIndex] += (log.durationMs / 3600000); 
+        entry.data[dayIndex] += ((log.endTime - log.startTime) / 3600000); // Recalc duration
     });
     const datasets = Array.from(dataByActivity.entries()).map(([name, d]) => ({
         label: name,
@@ -1453,7 +1551,7 @@ function renderMonthlyHeatmap(activityLogs) {
     const hoursByDay = new Map();
     filteredLogs.forEach(log => {
         const day = new Date(log.startTime).getDate(); 
-        const hours = log.durationMs / 3600000;
+        const hours = (log.endTime - log.startTime) / 3600000; // Recalc duration
         hoursByDay.set(day, (hoursByDay.get(day) || 0) + hours);
     });
     
@@ -1507,11 +1605,12 @@ function showLogDetailsModal() {
                 activityName = activity?.name || log.activityName;
                 activityColor = activity?.color || log.activityColor || 'var(--text-primary)';
             }
+            const durationMs = log.endTime - log.startTime; // Recalc duration
             const logHtml = `
                 <div class="bg-gray-50 p-3 rounded-lg flex justify-between items-center log-item-pop" style="animation-delay: ${index * 50}ms">
                     <div>
                         <p class="font-semibold" style="color: ${activityColor}">${activityName}</p> 
-                        <p class="text-sm">${startStr} - ${endStr} (${formatShortDuration(log.durationMs)})</p> 
+                        <p class="text-sm">${startStr} - ${endStr} (${formatShortDuration(durationMs)})</p> 
                         ${log.notes ? `<p class="text-xs italic mt-1" style="color: var(--text-muted);">${log.notes}</p>` : ''} 
                     </div>
                     <div class="flex space-x-2">
@@ -1583,24 +1682,26 @@ function showAddItemModal(itemIdToEdit = null) {
             <input type="text" id="add-item-name" placeholder="E.g., Finish report" class="w-full" maxlength="40">
         </div>
 
+        <!-- Category (MOVED) -->
+        <div>
+            <label for="add-item-category" class="block text-sm font-medium mb-2">Category</label>
+            <select id="add-item-category" class="w-full">
+                <option value="uncategorized">No Category</option>
+                ${Array.from(categories.values()).map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+            </select>
+        </div>
+
         <!-- Activity/Goal Fields (Emoji, Color, Category, Goal) - MODIFIED for Emoji Picker -->
         <div id="form-group-goal" class="space-y-4 hidden">
             <div class="flex gap-2">
                 <button type="button" id="add-item-emoji-btn" class="emoji-input-btn p-3" title="Select Emoji">
-                    <span id="add-item-emoji-preview">📅</span>
+                    <span id="add-item-emoji-preview">套</span>
                 </button>
-                <input type="hidden" id="add-item-emoji-value" value="📅">
+                <input type="hidden" id="add-item-emoji-value" value="套">
                 <input type="color" id="add-item-color" value="#3b82f6" title="Select activity color" class="w-16 h-16">
             </div>
             <div>
-                <label for="add-item-category" class="block text-sm font-medium mb-2">Category</label>
-                <select id="add-item-category" class="w-full">
-                    <option value="uncategorized">No Category</option>
-                    ${Array.from(categories.values()).map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
-                </select>
-            </div>
-            <div>
-                <label class="block text-sm font-medium mb-2">Goal</label>
+                <label class="block text-sm font-medium mb-2">Target (Hours)</label>
                 <div class="flex gap-2">
                     <input type="number" id="add-item-goal-value" min="0" step="0.5" placeholder="E.g., 5" class="w-1/2">
                     <select id="add-item-goal-period" class="w-1/2">
@@ -1664,6 +1765,7 @@ function showAddItemModal(itemIdToEdit = null) {
             // It's a Task or Deadline
             itemType = plannerItem.type;
             document.getElementById('add-item-name').value = plannerItem.name;
+            document.getElementById('add-item-category').value = plannerItem.categoryId || 'uncategorized';
             // FIX: Ensure notifyGroup exists before querying
             if (notifyGroup) notifyGroup.querySelector('#add-item-notify').value = plannerItem.notifyDays || 'none';
             
@@ -1695,7 +1797,7 @@ function showAddItemModal(itemIdToEdit = null) {
             // It's a Goal (Activity)
             itemType = 'goal';
             document.getElementById('add-item-name').value = activity.name;
-            const emoji = activity.emoji || '📅';
+            const emoji = activity.emoji || '套';
             document.getElementById('add-item-emoji-preview').textContent = emoji;
             document.getElementById('add-item-emoji-value').value = emoji;
             document.getElementById('add-item-color').value = activity.color || '#3b82f6';
@@ -1776,7 +1878,7 @@ async function handleAddItem(e) {
             const newActivity = {
                 name: name,
                 // MODIFICATION: Retrieve emoji and color inputs from new/old elements
-                emoji: document.getElementById('add-item-emoji-value').value || '📅',
+                emoji: document.getElementById('add-item-emoji-value').value || '套',
                 color: document.getElementById('add-item-color').value,
                 categoryId: document.getElementById('add-item-category').value,
                 goal: {
@@ -1802,6 +1904,7 @@ async function handleAddItem(e) {
             
             let itemData = {
                 name: name,
+                categoryId: document.getElementById('add-item-category').value,
                 type: type,
                 notifyDays: document.getElementById('add-item-notify').value || 'none',
                 isCompleted: editId ? (plannerItems.get(editId)?.isCompleted || false) : false,
@@ -1859,7 +1962,8 @@ function exportToCSV() {
         if (log.timerType === 'task') {
             const task = plannerItems.get(log.activityId);
             itemName = task?.name || log.activityName;
-            categoryName = "Task";
+            const category = categories.get(task?.categoryId);
+            categoryName = category?.name || "Uncategorized";
             itemType = "Task";
         } else {
             const activity = activities.get(log.activityId);
@@ -1875,7 +1979,7 @@ function exportToCSV() {
         const date = start.toLocaleDateString('en-CA'); 
         const startTime = start.toLocaleTimeString('en-GB'); 
         const endTime = end.toLocaleTimeString('en-GB'); 
-        const durationHours = (log.durationMs / 3600000).toFixed(4);
+        const durationHours = ((end.getTime() - start.getTime()) / 3600000).toFixed(4);
         
         const row = [
             `"${itemName.replace(/"/g, '""')}"`,
