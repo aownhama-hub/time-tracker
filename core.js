@@ -31,6 +31,7 @@ let analysisLogs = [];
 let logToEditId = null;
 let logToDelete = { id: null, type: null };
 let activityToEditId = null;
+let currentFilterBy = 'categories'; // NEW: 'categories' or 'activities'
 let previousTimeString = "00:00:00"; 
 let currentEmojiInputTarget = null;
 let stopTimerCompletion = null; 
@@ -45,8 +46,9 @@ let currentTrackTimeRange = {
 };
 let currentTrackFilters = { 
     types: ['goal', 'task', 'deadline'], // All types shown by default
-    activities: [], // IDs of activities to include (empty means all)
-    categories: [] // IDs of categories to include (empty means all)
+    activities: ['NONE'], // IDs of activities to include (empty means all, 'NONE' means none)
+    categories: [], // IDs of categories to include (empty means all)
+    filterBy: 'categories' // NEW
 };
 let currentCategoriesTimeRange = { // Added here for centralization
     type: 'month', 
@@ -55,8 +57,9 @@ let currentCategoriesTimeRange = { // Added here for centralization
 };
 let currentCategoriesFilters = { 
     types: ['goal'], // Only goals (activities) are relevant to category tracking
-    activities: [], 
-    categories: [] 
+    activities: ['NONE'], 
+    categories: [],
+    filterBy: 'categories' // NEW
 };
 let trackSearchQuery = '';
 
@@ -396,6 +399,7 @@ function setupEventListeners() {
     filterModal.querySelector('#filter-type-toggles').addEventListener('click', handleFilterTypeToggle);
     filterModal.querySelector('#filter-categories-list').addEventListener('change', handleFilterCheckboxChange);
     filterModal.querySelector('#filter-activities-list').addEventListener('change', handleFilterCheckboxChange);
+    filterModal.querySelector('#filter-by-toggles').addEventListener('click', handleFilterByToggle); // NEW
 
     // --- Emoji Picker Listeners (Old) ---
     emojiCategories.addEventListener('click', handleEmojiCategorySelect);
@@ -655,6 +659,12 @@ function showFilterModal(context) {
     const filters = (context === 'track') ? currentTrackFilters : currentCategoriesFilters;
 
     // 1. Set Type Toggles
+    // (Ensure the parent element exists before querying)
+    const filterTypeTogglesContainer = filterModal.querySelector('#filter-type-toggles');
+    if (!filterTypeTogglesContainer) {
+        console.error("Filter type toggles not found in modal.");
+        return; // Exit if modal structure is wrong
+    }
     filterTypeToggles.querySelectorAll('.filter-type-btn').forEach(btn => {
         const type = btn.dataset.filterType;
         const isActive = filters.types.includes(type);
@@ -662,23 +672,42 @@ function showFilterModal(context) {
         btn.dataset.active = isActive.toString();
     });
 
-    // 2. Populate and set Categories Checkboxes
-    filterCategoriesList.innerHTML = '';
-    Array.from(categories.values()).sort((a, b) => a.name.localeCompare(b.name)).forEach(c => {
-        const isChecked = filters.categories.length === 0 || filters.categories.includes(c.id);
-        filterCategoriesList.innerHTML += `
-            <label class="filter-checkbox-label">
-                <span class="filter-name">${c.name}</span>
-                <input type="checkbox" data-filter-id="${c.id}" data-filter-type="category" ${isChecked ? 'checked' : ''}>
-                <span class="checkmark"></span>
-            </label>
-        `;
+    // 2. Set "Filter By" Toggles and Container Visibility
+    currentFilterBy = filters.filterBy || 'categories';
+    filterModal.querySelectorAll('#filter-by-toggles .filter-type-btn').forEach(btn => {
+        const filterByType = btn.dataset.filterBy;
+        btn.classList.toggle('active', filterByType === currentFilterBy);
     });
+    const categoriesContainer = filterModal.querySelector('#filter-by-categories-container');
+    const activitiesContainer = filterModal.querySelector('#filter-by-activities-container');
+    if (categoriesContainer) {
+        categoriesContainer.classList.toggle('hidden', currentFilterBy !== 'categories');
+    }
+    if (activitiesContainer) {
+        activitiesContainer.classList.toggle('hidden', currentFilterBy !== 'activities');
+    }
+
+    // 3. Populate and set Categories Checkboxes
+    filterCategoriesList.innerHTML = '';
+    if (categories.size > 0) {
+        Array.from(categories.values()).sort((a, b) => a.name.localeCompare(b.name)).forEach(c => {
+            const isChecked = filters.categories.length === 0 || filters.categories.includes(c.id);
+            filterCategoriesList.innerHTML += `
+                <label class="filter-checkbox-label">
+                    <span class="filter-name">${c.name}</span>
+                    <input type="checkbox" data-filter-id="${c.id}" data-filter-type="category" ${isChecked ? 'checked' : ''}>
+                    <span class="checkmark"></span>
+                </label>
+            `;
+        });
+    }
     
-    // 3. Populate and set Activities Checkboxes (for Goals)
+    // 4. Populate and set Activities Checkboxes (for Goals)
     filterActivitiesList.innerHTML = '';
-    Array.from(activities.values()).sort((a, b) => a.name.localeCompare(b.name)).forEach(a => {
-        const isChecked = filters.activities.length === 0 || filters.activities.includes(a.id);
+    if (activities.size > 0) {
+        Array.from(activities.values()).sort((a, b) => a.name.localeCompare(b.name)).forEach(a => {
+            // NEW LOGIC: 'NONE' means nothing is checked. Empty list means all are checked (but we default to none selected)
+            const isChecked = filters.activities.length > 0 && filters.activities[0] !== 'NONE' && filters.activities.includes(a.id);
         filterActivitiesList.innerHTML += `
             <label class="filter-checkbox-label">
                 <span class="filter-name">${a.name}</span>
@@ -687,7 +716,8 @@ function showFilterModal(context) {
             </label>
         `;
     });
-
+    }
+    
     filterModal.classList.add('active');
 }
 
@@ -706,6 +736,33 @@ function handleFilterTypeToggle(e) {
     isActive = !isActive;
     btn.dataset.active = isActive.toString();
     btn.classList.toggle('active', isActive);
+}
+
+// NEW: Handle Filter By Toggle
+function handleFilterByToggle(e) {
+    const btn = e.target.closest('.filter-type-btn');
+    if (!btn) return;
+
+    const filterBy = btn.dataset.filterBy;
+    if (filterBy === currentFilterBy) return; // No change
+
+    currentFilterBy = filterBy;
+
+    // Update button active states
+    filterModal.querySelectorAll('#filter-by-toggles .filter-type-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.filterBy === currentFilterBy);
+    });
+
+    // Show/hide containers
+    const categoriesContainer = filterModal.querySelector('#filter-by-categories-container');
+    const activitiesContainer = filterModal.querySelector('#filter-by-activities-container');
+
+    if (categoriesContainer) {
+        categoriesContainer.classList.toggle('hidden', currentFilterBy !== 'categories');
+    }
+    if (activitiesContainer) {
+        activitiesContainer.classList.toggle('hidden', currentFilterBy !== 'activities');
+    }
 }
 
 function handleFilterCheckboxChange(e) {
@@ -729,7 +786,8 @@ function handleApplyFilters() {
     // 3. Read Activities Checkboxes
     const activityCheckboxes = Array.from(filterActivitiesList.querySelectorAll('input[type="checkbox"]'));
     const allActivitiesChecked = activityCheckboxes.every(cb => cb.checked);
-    const newActivities = allActivitiesChecked ? [] : Array.from(activityCheckboxes).filter(cb => cb.checked).map(cb => cb.dataset.filterId);
+    const checkedActivities = Array.from(activityCheckboxes).filter(cb => cb.checked).map(cb => cb.dataset.filterId);
+    const newActivities = (checkedActivities.length === 0) ? ['NONE'] : checkedActivities;
 
     // 4. Update Global State
     let targetFilters;
@@ -738,6 +796,7 @@ function handleApplyFilters() {
         targetFilters.types = newTypes;
         targetFilters.categories = newCategories;
         targetFilters.activities = newActivities;
+        targetFilters.filterBy = currentFilterBy; // Save context
         if (typeof renderTrackPage === 'function') renderTrackPage();
     } else { // categories
         targetFilters = currentCategoriesFilters;
@@ -745,6 +804,7 @@ function handleApplyFilters() {
         targetFilters.types = newTypes.includes('goal') ? ['goal'] : [];
         targetFilters.categories = newCategories;
         targetFilters.activities = newActivities;
+        targetFilters.filterBy = currentFilterBy; // Save context
         if (typeof renderCategoriesPage === 'function') renderCategoriesPage();
     }
     
@@ -824,7 +884,7 @@ function clearAllUserData() {
     
     // Reset state
     currentTrackView = 'list';
-    updateTimeRange('today');
+    if (typeof updateTimeRange === 'function') updateTimeRange('today');
     currentTrackFilters = { types: ['goal', 'task', 'deadline'], activities: [], categories: [] }; // Reset filters
     currentCategoriesFilters = { types: ['goal'], activities: [], categories: [] };
     trackSearchQuery = '';
@@ -1020,7 +1080,7 @@ const EMOJI_CATEGORIES = [
     { name: 'Activities', icon: '⚽', emojis: ['⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', '🥏', '🎱', '🪀', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '🥅', '⛳', '🪁', '🏹', '🎣', '🤿', '🥊', '🥋', '🎽', '🛹', '🛷', '⛸️', '🥌', '🎿', '⛷️', '🏂', '🪂', '🏋️', '🤸', '⛹️', '🤺', '🤾', '🏌️', '🏇', '🧘', '🏄', '🏊', '🤽', '🚣', '🧗', '🚵', '🚴', '🏆', '🥇', '🥈', '🥉', '🏅', '🎗️', '🎫', '🎪', '🤹', '🎭', '🩰', '🎨', '🎬', '🎤', '🎧', '🎼', '🎹', '🥁', '🎷', '🎺', '🎸', '🪕', '🎻', '🎲', '♟️', '🎯', '🎱', '🎮', '🎰', '🧩']},
     { name: 'Travel', icon: '🚗', emojis: ['🚗', '🚕', '🚙', '🚌', '🚎', '🏎️', '🚓', '🚑', '🚒', '🚐', '🛻', '🚚', '🚛', '🚜', '🚔', '🚍', '🏍️', '🛵', '🦽', '🦼', '🛺', '🚲', '🛴', '🛹', '🛷', '⛸️', '🥌', '🎿', '⛷️', '🏂', '🪂', '🏋️', '🤸', '⛹️', '🤺', '🤾', '🏌️', '🏇', '🧘', '🏄', '🏊', '🤽', '🚣', '🧗', '🚵', '🚴', '🏆', '🥇', '🥈', '🥉', '🏅', '🎗️', '🎫', '🎪', '🤹', '🎭', '🩰', '🎨', '🎬', '🎤', '🎧', '🎼', '🎹', '🥁', '🎷', '🎺', '🎸', '🪕', '🎻', '🎲', '♟️', '🎯', '🎱', '🎮', '🎰', '🧩']},
     { name: 'Objects', icon: '⌚', emojis: ['⌚', '📱', '💻', '⌨️', '🖥️', '🖨️', '🖱️', '🖲️', '🕹️', '🗜️', '⚙️', '🔧', '🔨', '⚒️', '⛏️', '🔩', '🧱', '🪨', '🪵', '🛖', '🛞', '⚖️', '🦯', '🔗', '⛓️', '🪝', '🧰', '🧲', '🪜', '⚗️', '🧪', '🧫', '🧬', '🔬', '🔭', '📡', '💉', '🩸', '💊', '🩹', '🩺', '🚪', '🛗', '🪞', '🪟', '🛏️', '🛋️', '🪑', '🚽', '🪠', '🚿', '🛁', '🪤', '🪒', '🧴', '🧷', '🧹', '🧺', '🧻', '🪣', '🧼', '🪥', '🧽', '🧯', '🛒', '🚬', '⚰️', '🪦', '⚱️', '🗿', '🪧', '🔮', '🪄', '📿', '💎', '💍', '💄', '💋', '💌', '💘', '💝', '💖', '💗', '💓', '💞', '💕', '💟', '❣️', '💔', '💯', '💢', '💣', '😵', '🤯', '💬', '👁️‍🗨️', '🗨️', '🗯️', '💭', '💤', '💮', '💈', '👓', '🕶️', '🥽', '🥼', '🦺', '👔', '👕', '👖', '🧣', '🧤', '🧥', '🧦', '👗', '👘', '🥻', '🩱', '🩲', '🩳', '👙', '👚', '👛', '👜', '👝', '🎒', '🩴', '👞', '👟', '🥾', '🥿', '👠', '👡', '🩰', '👢', '👑', '👒', '🎩', '🎓', '🧢', '🪖', '⛑️', '🔇', '🔈', '🔉', '🔊', '📢', '📣', '📯', '🔔', '🔕', '🎼', '🎵', '🎶', '💹', '📇', '📈', '📉', '📊', '📋', '📌', '📍', '📎', '🖇️', '📏', '📐', '✂️', '🗃️', '🗂️', '🗑️', '🔒', '🔓', '🔏', '🔐', '🔑', '🗝️', '🔨', '🪓', '⛏️', '⚒️', '🛠️', '🗡️', '⚔️', '🔫', '🪃', '🏹', '🛡️', '🪚', '🔧', '🔩', '🗜️', '⚖️', '🦯', '🔗', '⛓️', '🪝', '🧰', '🧲', '🪜', '⚗️', '🧪', '🧫', '🧬', '🔬', '🔭', '📡', '💉', '🩸', '💊', '🩹', '🩺', '🚪', '🛗', '🪞', '🪟', '🛏️', '🛋️', '🪑', '🚽', '🪠', '🚿', '🛁', '🪤', '🪒', '🧴', '🧷', '🧹', '🧺', '🧻', '🪣', '🧼', '🪥', '🧽', '🧯', '🛒', '🚬', '⚰️', '🪦', '⚱️', '🗿', '🪧', '🎄', '🎆', '🎇', '🧨', '✨', '🎈', '🎉', '🎊', '🎋', '🎍', '🎎', '🎏', '🎐', '🎑', '🧧', '🎀', '🎁']},
-    { name: 'Symbols', icon: '❤️', emojis: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤎', '🤍', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '☮️', '✝️', '☪️', '🕉️', '☸️', '✡️', '🔯', '🕎', '☯️', '☦️', '🛐', '⛎', '♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓', '🆔', '⚛️', '🉑', '☢️', '☣️', '📴', '📳', '🈶', '🈚', '🈸', '🈺', '🈷️', '✴️', '🆚', '💮', '🉐', '㊙️', '㊗️', '🈴', '🈵', '🈹', '🈲', '🅰️', '🅱️', '🆎', '🆑', '🅾️', '🆘', '❌', '⭕', '🛑', '⛔', '📛', '🚫', '💯', '💢', '♨️', '🚷', '🚯', '🚳', '🚱', '🔞', '📵', '🚭', '❗️', '❕', '❓', '❔', '‼️', '⁉️', '🔅', '🔆', '〽️', '⚠️', '🚸', '🔱', '⚜️', '🔰', '♻️', '✅', '🈯', '💹', '❇️', '✳️', '❎', '🌐', '💠', 'Ⓜ️', '🌀', '💤', '🏧', '🚾', '♿', '🅿️', '🛗', '🈳', '🈂️', '🛂', '🛃', '🛄', '🛅', '🛜', '🚰', '🚹', '♂️', '🚺', '♀️', '⚧️', '🚼', '🚻', '🚮', '🎦', '📶', '🈁', '🔣', 'ℹ️', '🔤', '🔡', '🔠', 'F', '🆗', '🆙', '🆒', '🆕', '🆓', '0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟', '🔢', '#️⃣', '*️⃣', '⏏️', '▶️', '⏸️', '⏯️', '⏹️', '⏺️', '⏭️', '⏮️', '⏩', '⏪', '⏫', '⏬', '◀️', '🔼', '🔽', '➡️', '⬅️', '⬆️', '⬇️', '↗️', '↘️', '↙️', '↖️', '↕️', '↔️', '↪️', '↩️', '⤴️', '⤵️', '🔀', '🔁', '🔂', '🔄', '🔃', '🎵', '🎶', '➕', '➖', '➗', '✖️', '🟰', '♾️', '💲', '💱', '™️', '©️', '®️', '🔚', '🔙', '🔛', '🔝', '🔜', '〰️', '➰', '⮐', '✔️', '☑️', '🔘', '🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '⚫', '⚪', '🟤', '🔺', '🔻', '🔼', '🔽', '🔳', '🔲', '▪️', '▫️', '◾', '◽', '◼️', '◻️', '🟥', '🟧', '🟨', '🟩', '🟦', '🟪', '🟫', '⬛', '⬜', '🔶', '🔷', '🔸', '🔹']},
+    { name: 'Symbols', icon: '❤️', emojis: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤎', '🤍', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '☮️', '✝️', '☪️', '🕉️', '☸️', '✡️', '🔯', '🕎', '☯️', '☦️', '🛐', '⛎', '♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓', '🆔', '⚛️', '🉑', '☢️', '☣️', '📴', '📳', '🈶', '🈚', '🈸', '🈺', '🈷️', '✴️', '🆚', '💮', '🉐', '㊙️', '㊗️', '🈴', '🈵', '🈹', '🈲', '🅰️', '🅱️', '🆎', '🆑', '🅾️', '🆘', '❌', '⭕', '🛑', '⛔', '📛', '🚫', '💯', '💢', '♨️', '🚷', '🚯', '🚳', '🚱', '🔞', '📵', '🚭', '❗️', '❕', '❓', '❔', '‼️', '⁉️', '🔅', '🔆', '〽️', '⚠️', '🚸', '🔱', '⚜️', '🔰', '♻️', '✅', '🈯', '💹', '❇️', '✳️', '❎', '🌐', '💠', 'Ⓜ️', '🌀', '💤', '🏧', '🚾', '♿', '🅿️', '🛗', '🈳', '🈂️', '🛂', '🛃', '🛄', '🛅', '🛜', '🚰', '🚹', '♂️', '🚺', '♀️', '⚧️', '🚼', '🚻', '🚮', '🎦', '📶', '🈁', '🔣', 'ℹ️', '🔤', '🔡', '🔠', 'F', '🆗', '🆙', '🆒', '🆕', '🆓', '0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟', '🔢', '#️⃣', '*️⃣', '⏏️', '▶️', '⏸️', '⏯️', '⏹️', '⏺️', '⏭️', '⏮️', '⏩', '⏪', '⏫', '⏬', '◀️', '🔼', '🔽', '➡️', '⬅️', '⬆️', '⬇️', '↗️', '↘️', '↙️', '↖️', '↕️', '↔️', '↪️', '↩️', '⤴️', '⤵️', '🔀', '🔁', '🔂', '🔄', '🔃', '🎵', '🎶', '➕', '➖', '➗', '✖️', '🟰', '♾️', '💲', '💱', '™️', '©️', '®️', '🔚', '🔙', '🔛', '🔝', '🔜', '〰️', '➰', '⮐', '✔️', '☑️', '🔘', '🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '⚫', '⚪', '🟤', '🔺', '🔻', '🔼', '🔽', '🔳', '🔲', '▪️', '▫️', '◾', '◽', '◼️', '◻️', '🟥', '🟧', '🟨', '🟩', '🟦', '🟪', '🫘', '⬛', '⬜', '🔶', '🔷', '🔸', '🔹']},
 ];
 function populateEmojiPicker() {
     emojiCategories.innerHTML = '';
