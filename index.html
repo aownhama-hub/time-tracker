@@ -126,16 +126,15 @@
                 
                 <!-- Grouped controls on the right -->
                 <div class="flex items-center space-x-2">
-                    <button id="categories-nav-prev" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                    <button id="categories-nav-prev" class="p-2 rounded-full bg-blue-600 text-white">
+                        <i class="bi bi-chevron-left text-xl"></i>
                     </button>
-                    <button id="categories-nav-next" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    <button id="categories-nav-next" class="p-2 rounded-full bg-blue-600 text-white">
+                        <i class="bi bi-chevron-right text-xl"></i>
                     </button>
-                    <!-- NEW FILTER BUTTON: Should be styled as a large button -->
-                    <button id="categories-filter-btn" class="p-2 rounded-lg bg-blue-600 text-white font-semibold flex items-center space-x-2">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM12 11a1 1 0 011-1h6a1 1 0 011 1v2a1 1 0 01-1 1h-6a1 1 0 01-1-1v-2zM6 11a1 1 0 011-1h.01a1 1 0 010 2H7a1 1 0 01-1-1zM18 18a1 1 0 011-1h.01a1 1 0 010 2H19a1 1 0 01-1-1zM6 18a1 1 0 011-1h6a1 1 0 011 1v2a1 1 0 01-1 1H7a1 1 0 01-1-1v-2z"></path></svg>
-                        <span class="text-sm hidden sm:inline">Filter</span>
+                    <!-- NEW FILTER BUTTON: -->
+                    <button id="categories-filter-btn" class="p-2 rounded-full bg-blue-600 text-white">
+                        <i class="bi bi-funnel-fill text-xl"></i>
                     </button>
                 </div>
             </div>
@@ -235,16 +234,15 @@
                 
                 <!-- NEW: Grouped controls on the right -->
                 <div class="flex items-center space-x-2">
-                    <button id="time-nav-prev" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                    <button id="time-nav-prev" class="p-2 rounded-full bg-blue-600 text-white">
+                        <i class="bi bi-chevron-left text-xl"></i>
                     </button>
-                    <button id="time-nav-next" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    <button id="time-nav-next" class="p-2 rounded-full bg-blue-600 text-white">
+                        <i class="bi bi-chevron-right text-xl"></i>
                     </button>
-                    <!-- NEW FILTER BUTTON: Should be styled as a large button -->
-                    <button id="filter-btn" class="p-2 rounded-lg bg-blue-600 text-white font-semibold flex items-center space-x-2">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM12 11a1 1 0 011-1h6a1 1 0 011 1v2a1 1 0 01-1 1h-6a1 1 0 01-1-1v-2zM6 11a1 1 0 011-1h.01a1 1 0 010 2H7a1 1 0 01-1-1zM18 18a1 1 0 011-1h.01a1 1 0 010 2H19a1 1 0 01-1-1zM6 18a1 1 0 011-1h6a1 1 0 011 1v2a1 1 0 01-1 1H7a1 1 0 01-1-1v-2z"></path></svg>
-                        <span class="text-sm hidden sm:inline">Filter</span>
+                    <!-- NEW FILTER BUTTON: -->
+                    <button id="filter-btn" class="p-2 rounded-full bg-blue-600 text-white">
+                        <i class="bi bi-funnel-fill text-xl"></i>
                     </button>
                 </div>
             </div>
@@ -468,7 +466,10 @@
                         <option value="0">On the day</option>
                         <option value="1">1 day before</option>
                         <option value="3">3 days before</option>
+                        <option value="5">5 days before</option>
                         <option value="7">7 days before</option>
+                        <option value="14">14 days before</option>
+                        <option value="30">30 days before</option>
                     </select>
                 </div>
                 
@@ -572,19 +573,32 @@
                 </div>
             </div>
 
+            <!-- NEW "Filter By" TOGGLE -->
+            <div class="space-y-2">
+                <label class="font-semibold text-gray-900 dark:text-gray-100">Filter By</label>
+                <div id="filter-by-toggles" class="grid grid-cols-2 gap-2 p-1 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                    <button type="button" data-filter-by="categories" class="filter-type-btn p-2 rounded-md font-semibold active">Categories</button>
+                    <button type="button" data-filter-by="activities" class="filter-type-btn p-2 rounded-md font-semibold">Activities</button>
+                </div>
+            </div>
+
             <!-- Category Filter -->
-            <div class="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                <h4 class="font-semibold text-gray-900 dark:text-gray-100">Categories</h4>
-                <div id="filter-categories-list" class="space-y-3 max-h-40 overflow-y-auto pr-2">
-                    <!-- Category checkboxes injected here -->
+            <div id="filter-by-categories-container">
+                <div class="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <h4 class="font-semibold text-gray-900 dark:text-gray-100">Categories</h4>
+                    <div id="filter-categories-list" class="space-y-3 max-h-40 overflow-y-auto pr-2">
+                        <!-- Category checkboxes injected here -->
+                    </div>
                 </div>
             </div>
 
             <!-- Activity Filter -->
-            <div class="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                <h4 class="font-semibold text-gray-900 dark:text-gray-100">Activities / Goals</h4>
-                <div id="filter-activities-list" class="space-y-3 max-h-40 overflow-y-auto pr-2">
-                    <!-- Activity checkboxes injected here (only for type: 'goal') -->
+            <div id="filter-by-activities-container" class="hidden">
+                <div class="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <h4 class="font-semibold text-gray-900 dark:text-gray-100">Activities / Goals</h4>
+                    <div id="filter-activities-list" class="space-y-3 max-h-40 overflow-y-auto pr-2">
+                        <!-- Activity checkboxes injected here (only for type: 'goal') -->
+                    </div>
                 </div>
             </div>
 
@@ -605,12 +619,12 @@
             <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h2>
 
             <!-- Account Card -->
-            <div class="bg-gray-50 dark:bg-gray-700 p-6 rounded-lg shadow-inner space-y-4">
-                <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Account</h3>
-                <p class="text-sm text-gray-600 dark:text-gray-400">Sign in to back up and sync your data across devices.</p>
+            <div class="settings-card-bg settings-card-text p-6 rounded-lg shadow-inner space-y-4">
+                <h3 class="text-xl font-semibold">Account</h3>
+                <p class="text-sm">Sign in to back up and sync your data across devices.</p>
                 <div id="user-info" class="mb-4" style="display: none;">
-                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Signed in as:</p>
-                    <p id="user-email" class="text-sm text-gray-600 dark:text-gray-400"></p>
+                    <p class="text-sm font-medium">Signed in as:</p>
+                    <p id="user-email" class="text-sm"></p>
                 </div>
                 <button id="sign-in-btn" class="w-full bg-blue-600 text-white p-3 rounded-lg font-semibold transition flex items-center justify-center gap-2">
                     <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.2 0 5.8 1.2 7.8 3.1l5.8-5.8C34.5 3.1 29.8 1 24 1 14.9 1 7.2 6.6 3.9 14.5l6.9 5.3C12.4 12.8 17.8 9.5 24 9.5z"></path><path fill="#4285F4" d="M46.2 24.5c0-1.5-.1-2.9-.4-4.3H24v8.3h12.5c-.6 2.7-2.3 5-4.8 6.6l6.4 4.9c3.8-3.5 6-8.8 6-15.5z"></path><path fill="#FBBC05" d="M10.8 28.7c-.7-2.1-.7-4.4 0-6.5l-6.9-5.3C1.4 20.6 0 25.1 0 30c0 4.9 1.4 9.4 3.9 13.1l6.9-5.3c-.7-2.1-.7-4.4 0-6.5z"></path><path fill="#34A853" d="M24 47c5.8 0 10.7-1.9 14.2-5.2l-6.4-4.9c-1.9 1.3-4.4 2.1-7.8 2.1-6.2 0-11.6-3.3-13.7-8.1l-6.9 5.3C7.2 40.4 14.9 47 24 47z"></path><path fill="none" d="M0 0h48v48H0z"></path></svg>
@@ -620,11 +634,11 @@
             </div>
 
             <!-- Appearance Card -->
-            <div class="bg-gray-50 dark:bg-gray-700 p-6 rounded-lg shadow-inner space-y-6">
-                <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Appearance</h3>
+            <div class="settings-card-bg settings-card-text p-6 rounded-lg shadow-inner space-y-6">
+                <h3 class="text-xl font-semibold">Appearance</h3>
                 
                 <div class="flex justify-between items-center">
-                    <label class="font-medium text-gray-900 dark:text-gray-100">Dark Theme</label>
+                    <label class="font-medium">Dark Theme</label>
                     <button id="theme-toggle-btn-settings" class="p-2 rounded-full transition bg-gray-200 dark:bg-gray-600">
                         <svg id="theme-icon-light-settings" class="w-6 h-6 text-gray-900 dark:text-gray-100" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
                         <svg id="theme-icon-dark-settings" class="w-6 h-6 text-gray-900 dark:text-gray-100 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
@@ -632,7 +646,7 @@
                 </div>
 
                 <div class="flex flex-col">
-                    <label for="font-size-slider" class="font-medium mb-3 text-gray-900 dark:text-gray-100">Font Size</label>
+                    <label for="font-size-slider" class="font-medium mb-3">Font Size</label>
                     <input type="range" id="font-size-slider" min="0" max="4" value="2" class="w-full">
                     <div class="flex justify-between text-xs mt-2 text-gray-500 dark:text-gray-400">
                         <span>S</span>
