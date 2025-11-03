@@ -132,7 +132,7 @@
                     <button id="categories-nav-next" class="p-2 rounded-full bg-blue-600 text-white">
                         <i class="bi bi-chevron-right text-xl"></i>
                     </button>
-                    <!-- NEW FILTER BUTTON: Should be styled as a large button -->
+                    <!-- NEW FILTER BUTTON: -->
                     <button id="categories-filter-btn" class="p-2 rounded-full bg-blue-600 text-white">
                         <i class="bi bi-funnel-fill text-xl"></i>
                     </button>
@@ -240,7 +240,7 @@
                     <button id="time-nav-next" class="p-2 rounded-full bg-blue-600 text-white">
                         <i class="bi bi-chevron-right text-xl"></i>
                     </button>
-                    <!-- NEW FILTER BUTTON: Should be styled as a large button -->
+                    <!-- NEW FILTER BUTTON: -->
                     <button id="filter-btn" class="p-2 rounded-full bg-blue-600 text-white">
                         <i class="bi bi-funnel-fill text-xl"></i>
                     </button>
@@ -328,6 +328,58 @@
     <!-- Edit Log Modal (No changes) -->
     <div id="edit-log-modal" class="modal fixed inset-0 z-50 items-center justify-center p-4 overflow-y-auto"><div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-sm w-full mt-20"><h3 class="text-xl font-bold mb-6 text-gray-900 dark:text-gray-100">Edit Time Log</h3><form id="edit-log-form" class="space-y-4"><input type="hidden" id="edit-log-id"><div><label for="edit-activity-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Activity</label><input type="text" id="edit-activity-name" class="mt-1 block w-full p-3 border rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600" readonly></div><div><label for="edit-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Date</label><input type="date" id="edit-date" class="mt-1 block w-full p-3 border rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600"></div><div class="grid grid-cols-2 gap-4"><div><label for="edit-start-time" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Start Time</label><input type="time" id="edit-start-time" class="mt-1 block w-full p-3 border rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600"></div><div><label for="edit-end-time" class="block text-sm font-medium text-gray-700 dark:text-gray-300">End Time</label><input type="time" id="edit-end-time" class="mt-1 block w-full p-3 border rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600"></div></div><div><label for="edit-notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes (Optional)</label><textarea id="edit-notes" rows="3" class="mt-1 block w-full p-3 border rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600"></textarea></div><div class="flex justify-end space-x-3 pt-4"><button type="button" id="cancel-edit-log-btn" class="bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-100 px-4 py-2 rounded-lg font-semibold transition">Cancel</button><button type="submit" id="save-edit-log-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold transition">Save Changes</button></div></form></div></div>
     
+    <!-- Old Edit Activity Modal (DEPRECATED, but kept for legacy edits) -->
+    <div id="edit-activity-modal" class="modal fixed inset-0 z-50 items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-sm w-full">
+            <h3 class="text-xl font-bold mb-6 text-gray-900 dark:text-gray-100">Edit Activity (Legacy)</h3>
+            <form id="edit-activity-form" class="space-y-4">
+                <input type="hidden" id="edit-activity-id">
+                
+                <div>
+                    <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Activity</label>
+                    <div class="flex gap-2">
+                        <button type="button" id="edit-activity-emoji-input" class="emoji-input-btn" title="Select Emoji">😀</button>
+                        <input type="hidden" id="edit-activity-emoji-value" value="😀">
+                        <input type="text" id="edit-activity-name-input" placeholder="Activity name..." class="flex-grow p-3 focus:outline-none rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" title="Activity Name" maxlength="20">
+                        <input type="color" id="edit-activity-color-input" title="Select activity color">
+                    </div>
+                </div>
+                <div>
+                    <label for="edit-activity-category" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Category</Tlabel>
+                    <input type="text" id="edit-activity-category" placeholder="E.g., Work, Uni, Personal" class="mt-1 block w-full p-3 border rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600" maxlength="20" list="category-list-datalist">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Goal</label>
+                    <div class="flex gap-2 mt-1">
+                        <input type="number" id="edit-activity-goal-value" min="0" step="0.5" placeholder="E.g., 5" class="w-1/2 p-3 border rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600">
+                        <select id="edit-activity-goal-period" class="w-1/2 p-3 border rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600">
+                            <option value="none">None</option>
+                            <option value="daily">per Day</option>
+                            <option value="weekly">per Week</option>
+                            <option value="monthly">per Month</option>
+                            <option value="yearly">per Year</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center pt-2">
+                    <label for="edit-activity-pin" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Pin to Home (Deprecated)</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="edit-activity-pin">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="flex justify-between items-center pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
+                    <button type="button" id="delete-activity-from-modal-btn" class="bg-red-600 text-white px-4 py-2 rounded-lg font-semibold transition">Delete</button>
+                    <div class="flex space-x-3">
+                        <button type="button" id="cancel-edit-activity-btn" class="bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-100 px-4 py-2 rounded-lg font-semibold transition">Cancel</button>
+                        <button type="submit" id="save-edit-activity-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold transition">Save</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    
     <!-- Log Details Modal (No changes) -->
     <div id="log-details-modal" class="modal fixed inset-0 z-50 items-center justify-center p-4 overflow-y-auto">
         <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-sm w-full mt-20">
@@ -337,6 +389,20 @@
             </div>
             <div class="flex justify-end">
                 <button type="button" id="close-log-details-btn" class="bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-100 px-4 py-2 rounded-lg font-semibold transition">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Old Emoji Picker Modal (DEPRECATED) -->
+    <div id="emoji-modal" class="modal fixed inset-0 z-50 items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-xl w-full">
+            <h3 class="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">Select an Emoji</h3>
+            <div id="emoji-grid" class="emoji-grid">
+            </div>
+            <div id="emoji-categories" class="flex flex-wrap justify-center gap-2 border-t pt-3 mt-3 border-gray-200 dark:border-gray-700">
+            </div>
+            <div class="flex justify-end mt-4">
+                <button type="button" id="close-emoji-modal-btn" class="bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-100 px-4 py-2 rounded-lg font-semibold transition">Cancel</button>
             </div>
         </div>
     </div>
@@ -506,8 +572,8 @@
                     <button type="button" data-filter-type="deadline" class="filter-type-btn p-2 rounded-md font-semibold" data-active="true">Deadlines</button>
                 </div>
             </div>
-            
-            <!-- NEW Filter By Toggle -->
+
+            <!-- NEW "Filter By" TOGGLE -->
             <div class="space-y-2">
                 <label class="font-semibold text-gray-900 dark:text-gray-100">Filter By</label>
                 <div id="filter-by-toggles" class="grid grid-cols-2 gap-2 p-1 bg-gray-100 dark:bg-gray-700 rounded-lg">
@@ -517,18 +583,22 @@
             </div>
 
             <!-- Category Filter -->
-            <div id="filter-by-categories-container" class="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                <h4 class="font-semibold text-gray-900 dark:text-gray-100">Categories</h4>
-                <div id="filter-categories-list" class="space-y-3 max-h-40 overflow-y-auto pr-2">
-                    <!-- Category checkboxes injected here -->
+            <div id="filter-by-categories-container">
+                <div class="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <h4 class="font-semibold text-gray-900 dark:text-gray-100">Categories</h4>
+                    <div id="filter-categories-list" class="space-y-3 max-h-40 overflow-y-auto pr-2">
+                        <!-- Category checkboxes injected here -->
+                    </div>
                 </div>
             </div>
 
             <!-- Activity Filter -->
-            <div id="filter-by-activities-container" class="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700 hidden">
-                <h4 class="font-semibold text-gray-900 dark:text-gray-100">Activities / Goals</h4>
-                <div id="filter-activities-list" class="space-y-3 max-h-40 overflow-y-auto pr-2">
-                    <!-- Activity checkboxes injected here (only for type: 'goal') -->
+            <div id="filter-by-activities-container" class="hidden">
+                <div class="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <h4 class="font-semibold text-gray-900 dark:text-gray-100">Activities / Goals</h4>
+                    <div id="filter-activities-list" class="space-y-3 max-h-40 overflow-y-auto pr-2">
+                        <!-- Activity checkboxes injected here (only for type: 'goal') -->
+                    </div>
                 </div>
             </div>
 
@@ -628,4 +698,3 @@
 
 </body>
 </html>
-
