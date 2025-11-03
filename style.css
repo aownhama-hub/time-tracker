@@ -243,24 +243,6 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 0.375rem; 
     box-shadow: 0 0 0 3px rgba(var(--link-rgb), 0.25);
 }
 
-/* DELETED: Old add-category-icon-btn styles (now inline with the above) 
-#add-category-icon-btn {
-    width: 100%;
-    height: 4rem; 
-    font-size: 2rem; 
-    border: 1px dashed var(--border-color);
-    color: var(--text-secondary);
-    background-color: var(--bg-accent);
-}
-#add-category-icon-btn:hover {
-    background-color: var(--bg-accent-hover);
-}
-#add-category-color-input {
-    width: 4rem; 
-    height: 4rem; 
-} */
-
-
 input[type="range"] {
     -webkit-appearance: none;
     appearance: none;
@@ -539,15 +521,12 @@ button { border-radius: 0.5rem; } /* UPDATED: Larger radius */
 }
 
 /* MODIFIED: Emoji modal is now Icon Picker modal */
-#emoji-modal,
 #icon-picker-modal {
     z-index: 100;
 }
-#emoji-modal > div,
 #icon-picker-modal > div {
     max-height: 70vh;
 }
-.emoji-grid,
 #icon-picker-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(3rem, 1fr)); /* Larger tap target */
@@ -558,7 +537,6 @@ button { border-radius: 0.5rem; } /* UPDATED: Larger radius */
     background-color: var(--bg-primary);
     border-radius: 0.5rem;
 }
-.emoji-btn,
 .icon-picker-btn {
     font-size: 1.75rem; /* Larger icon */
     text-align: center;
@@ -568,29 +546,8 @@ button { border-radius: 0.5rem; } /* UPDATED: Larger radius */
     transition: background-color 0.2s ease;
     color: var(--text-primary);
 }
-.emoji-btn:hover,
 .icon-picker-btn:hover {
     background-color: var(--bg-accent-hover);
-}
-.emoji-category-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 3.25rem;
-    height: 3.25rem;
-    font-size: 1.5rem;
-    padding: 0.5rem;
-    border-radius: 0.375rem;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-    background-color: var(--bg-button-secondary);
-}
-.emoji-category-btn:hover {
-    background-color: var(--bg-button-secondary-hover);
-}
-.emoji-category-btn.active {
-    background-color: var(--link-color);
-    color: var(--link-text);
 }
 
 nav.fixed.bottom-0 { 
@@ -692,8 +649,6 @@ button:active { transform: scale(0.96); opacity: 0.9; }
 #delete-modal { z-index: 60; } 
 #stop-note-modal { z-index: 55; }
 #icon-picker-modal { z-index: 101; } /* Above other modals */
-/* NEW FIX: Ensure emoji modal is visible when active */
-#emoji-modal { z-index: 101; } 
 /* NEW: Filter modal z-index */
 #filter-modal { z-index: 110; }
 
@@ -721,7 +676,6 @@ button:active { transform: scale(0.96); opacity: 0.9; }
 #add-category-modal,
 #settings-modal,
 #icon-picker-modal,
-#emoji-modal,
 #filter-modal { /* ADDED #filter-modal */
     align-items: center; /* Overrides old 'flex-end' */
 }
@@ -729,7 +683,6 @@ button:active { transform: scale(0.96); opacity: 0.9; }
 #add-category-modal > div,
 #settings-modal > div,
 #icon-picker-modal > div,
-#emoji-modal > div,
 #filter-modal > div { /* ADDED #filter-modal > div */
     animation: popIn 0.3s ease-out forwards; /* Use popIn animation */
     border-radius: 0.75rem; /* Standard border radius */
@@ -954,7 +907,7 @@ button:active { transform: scale(0.96); opacity: 0.9; }
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 9999px; /* circle */
+    border-radius: 0.5rem; /* rounded square */
     border: 2px solid var(--item-bg); /* Creates separation */
     color: white; /* Icon color */
 }
@@ -1315,16 +1268,42 @@ button:active { transform: scale(0.96); opacity: 0.9; }
     font-weight: bold;
 }
 
-/* --- NEW V24 Settings Modal Theme --- */
-.settings-card-bg { 
+/* --- NEW V24 Settings Modal Theme (Scoped) --- */
+#settings-modal .settings-card-bg { 
     background-color: var(--settings-card-bg); 
 }
-.settings-card-text h3 { 
+#settings-modal .settings-card-text h3 { 
     color: var(--text-primary-inverted); 
 }
-.settings-card-text p { 
+#settings-modal .settings-card-text p { 
     color: var(--text-secondary-inverted); 
 }
-.settings-card-text label { 
+#settings-modal .settings-card-text label { 
     color: var(--text-primary-inverted); 
 }
+
+/* --- NEW V24 Nav/Filter Buttons (Icon Only) --- */
+#track-time-nav-prev,
+#track-time-nav-next,
+#track-filter-btn,
+#categories-nav-prev,
+#categories-nav-next,
+#categories-filter-btn {
+    background-color: transparent;
+    color: var(--link-color);
+    width: 2.5rem; /* 40px */
+    height: 2.5rem; /* 40px */
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+#track-time-nav-prev:hover,
+#track-time-nav-next:hover,
+#track-filter-btn:hover,
+#categories-nav-prev:hover,
+#categories-nav-next:hover,
+#categories-filter-btn:hover {
+    background-color: var(--bg-accent);
+}
+
