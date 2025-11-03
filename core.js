@@ -33,7 +33,6 @@ let logToDelete = { id: null, type: null };
 let activityToEditId = null;
 let currentFilterBy = 'categories'; // NEW: 'categories' or 'activities'
 let previousTimeString = "00:00:00"; 
-let currentEmojiInputTarget = null;
 let stopTimerCompletion = null; 
 
 // --- Time Range & Filter State ---
@@ -48,7 +47,8 @@ let currentTrackFilters = {
     types: ['goal', 'task', 'deadline'], // All types shown by default
     activities: ['NONE'], // IDs of activities to include (empty means all, 'NONE' means none)
     categories: [], // IDs of categories to include (empty means all)
-    filterBy: 'categories' // NEW
+    filterBy: 'categories', // NEW
+    status: 'all' // NEW: 'all', 'pending', 'completed', 'overdue', 'nearDeadline'
 };
 let currentCategoriesTimeRange = { // Added here for centralization
     type: 'month', 
@@ -177,19 +177,7 @@ const editEndTimeInput = document.getElementById('edit-end-time');
 const editNotesInput = document.getElementById('edit-notes');
 
 // Old Edit Activity Modal (will be deprecated)
-const editActivityModal = document.getElementById('edit-activity-modal');
-const editActivityForm = document.getElementById('edit-activity-form');
-const cancelEditActivityBtn = document.getElementById('cancel-edit-activity-btn');
-const editActivityIdInput = document.getElementById('edit-activity-id');
-const editActivityNameInput_Input = document.getElementById('edit-activity-name-input');
-const editActivityColorInput = document.getElementById('edit-activity-color-input');
-const editActivityEmojiBtn = document.getElementById('edit-activity-emoji-input'); 
-const editActivityEmojiValue = document.getElementById('edit-activity-emoji-value');
-const deleteActivityFromModalBtn = document.getElementById('delete-activity-from-modal-btn'); 
-const editActivityCategory = document.getElementById('edit-activity-category'); 
-const editActivityGoalValueInput = document.getElementById('edit-activity-goal-value'); 
-const editActivityGoalPeriodInput = document.getElementById('edit-activity-goal-period'); 
-const editActivityPin = document.getElementById('edit-activity-pin'); 
+// REMOVED: All element references for edit-activity-modal
 
 // Analysis page refs
 const analysisDateInput = document.getElementById('analysis-date');
@@ -215,11 +203,7 @@ const logDetailsList = document.getElementById('log-details-list');
 const closeLogDetailsBtn = document.getElementById('close-log-details-btn');
 const exportCsvBtn = document.getElementById('export-csv-btn');
 
-// Old Emoji Modal (will be deprecated)
-const emojiModal = document.getElementById('emoji-modal');
-const emojiGrid = document.getElementById('emoji-grid');
-const closeEmojiModalBtn = document.getElementById('close-emoji-modal-btn');
-const emojiCategories = document.getElementById('emoji-categories');
+// REMOVED: All element references for emoji-modal
 
 // --- Universal Add Button ---
 const universalAddBtn = document.getElementById('universal-add-btn');
@@ -253,6 +237,7 @@ const cancelTimeRangeBtn = document.getElementById('cancel-time-range-btn');
 // NEW Filter Modal Refs
 const filterModal = document.getElementById('filter-modal');
 const filterTypeToggles = document.getElementById('filter-type-toggles');
+const filterStatusToggles = document.getElementById('filter-status-toggles');
 const filterCategoriesList = document.getElementById('filter-categories-list');
 const filterActivitiesList = document.getElementById('filter-activities-list');
 const cancelFilterBtn = document.getElementById('cancel-filter-btn');
@@ -267,7 +252,6 @@ document.addEventListener('DOMContentLoaded', () => {
     authenticateUser(); 
     setDefaultAnalysisDate();
     setFlipClock("00:00:00"); 
-    populateEmojiPicker(); // Old, will be replaced by populateIconPicker
     populateIconPicker(); // NEW
     // Set default time range
     updateTimeRange('today');
@@ -344,9 +328,7 @@ function setupEventListeners() {
     categoriesFilterBtn.addEventListener('click', () => showFilterModal('categories'));
     
     // --- Edit Activity Listeners (Old, will be deprecated) ---
-    cancelEditActivityBtn.addEventListener('click', hideEditActivityModal);
-    editActivityForm.addEventListener('submit', handleSaveEditActivity);
-    deleteActivityFromModalBtn.addEventListener('click', handleDeleteActivityFromModal); 
+    // REMOVED
     
     // --- Timer Banner/Clock Listeners (Unchanged) ---
     timerBanner.addEventListener('click', (e) => {
@@ -377,7 +359,7 @@ function setupEventListeners() {
     addClickOutsideListener(manualEntryModal, hideManualEntryModal);
     addClickOutsideListener(editLogModal, hideEditLogModal);
     addClickOutsideListener(logDetailsModal, hideLogDetailsModal);
-    addClickOutsideListener(emojiModal, hideEmojiPicker);
+    // REMOVED: addClickOutsideListener(emojiModal, hideEmojiPicker);
 
     // --- NEW Modal Listeners ---
     addClickOutsideListener(addItemModal, hideAddItemModal);
@@ -397,14 +379,12 @@ function setupEventListeners() {
     cancelFilterBtn.addEventListener('click', hideFilterModal);
     applyFilterBtn.addEventListener('click', handleApplyFilters);
     filterModal.querySelector('#filter-type-toggles').addEventListener('click', handleFilterTypeToggle);
+    filterModal.querySelector('#filter-status-toggles').addEventListener('click', handleFilterStatusToggle); // NEW
     filterModal.querySelector('#filter-categories-list').addEventListener('change', handleFilterCheckboxChange);
     filterModal.querySelector('#filter-activities-list').addEventListener('change', handleFilterCheckboxChange);
     filterModal.querySelector('#filter-by-toggles').addEventListener('click', handleFilterByToggle); // NEW
 
-    // --- Emoji Picker Listeners (Old) ---
-    emojiCategories.addEventListener('click', handleEmojiCategorySelect);
-    emojiGrid.addEventListener('click', handleEmojiSelect);
-    closeEmojiModalBtn.addEventListener('click', hideEmojiPicker);
+    // REMOVED: Emoji Picker Listeners
 
     // --- NEW V24 Listeners ---
     cancelAddCategoryBtn.addEventListener('click', hideAddCategoryModal);
@@ -672,6 +652,17 @@ function showFilterModal(context) {
         btn.dataset.active = isActive.toString();
     });
 
+    // 1b. Set Status Toggles (NEW)
+    const filterStatusTogglesContainer = filterModal.querySelector('#filter-status-toggles');
+    if (filterStatusTogglesContainer) {
+        // Only show status toggles if in 'track' context
+        filterStatusTogglesContainer.parentElement.style.display = (context === 'track') ? 'block' : 'none';
+        
+        filterStatusTogglesContainer.querySelectorAll('.filter-status-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.filterStatus === filters.status);
+        });
+    }
+
     // 2. Set "Filter By" Toggles and Container Visibility
     currentFilterBy = filters.filterBy || 'categories';
     filterModal.querySelectorAll('#filter-by-toggles .filter-type-btn').forEach(btn => {
@@ -691,7 +682,8 @@ function showFilterModal(context) {
     filterCategoriesList.innerHTML = '';
     if (categories.size > 0) {
         Array.from(categories.values()).sort((a, b) => a.name.localeCompare(b.name)).forEach(c => {
-            const isChecked = filters.categories.length === 0 || filters.categories.includes(c.id);
+            // NEW LOGIC: 'NONE' means none are checked. Empty list means all are checked.
+            const isChecked = filters.categories.length === 0 || (filters.categories[0] !== 'NONE' && filters.categories.includes(c.id));
             filterCategoriesList.innerHTML += `
                 <label class="filter-checkbox-label">
                     <span class="filter-name">${c.name}</span>
@@ -738,6 +730,18 @@ function handleFilterTypeToggle(e) {
     btn.classList.toggle('active', isActive);
 }
 
+// NEW: Handle Status Filter Toggle (Single Choice)
+function handleFilterStatusToggle(e) {
+    const btn = e.target.closest('.filter-status-btn');
+    if (!btn) return;
+
+    // Visually update the active state
+    filterStatusToggles.querySelectorAll('.filter-status-btn').forEach(b => {
+        b.classList.toggle('active', b === btn);
+    });
+}
+
+
 // NEW: Handle Filter By Toggle
 function handleFilterByToggle(e) {
     const btn = e.target.closest('.filter-type-btn');
@@ -781,13 +785,21 @@ function handleApplyFilters() {
     // 2. Read Categories Checkboxes
     const categoryCheckboxes = Array.from(filterCategoriesList.querySelectorAll('input[type="checkbox"]'));
     const allCategoriesChecked = categoryCheckboxes.every(cb => cb.checked);
-    const newCategories = allCategoriesChecked ? [] : Array.from(categoryCheckboxes).filter(cb => cb.checked).map(cb => cb.dataset.filterId);
-
+    const checkedCategories = Array.from(categoryCheckboxes).filter(cb => cb.checked).map(cb => cb.dataset.filterId);
+    
+    let newCategories = [];
+    if (allCategoriesChecked) {
+        newCategories = []; // Empty array means "all"
+    } else if (checkedCategories.length === 0) {
+        newCategories = ['NONE']; // 'NONE' means "none"
+    } else {
+        newCategories = checkedCategories;
+    }
+    
     // 3. Read Activities Checkboxes
     const activityCheckboxes = Array.from(filterActivitiesList.querySelectorAll('input[type="checkbox"]'));
-    const allActivitiesChecked = activityCheckboxes.every(cb => cb.checked);
     const checkedActivities = Array.from(activityCheckboxes).filter(cb => cb.checked).map(cb => cb.dataset.filterId);
-    const newActivities = (checkedActivities.length === 0) ? ['NONE'] : checkedActivities;
+    const newActivities = (checkedActivities.length === 0) ? ['NONE'] : checkedActivities; // 'NONE' means "none"
 
     // 4. Update Global State
     let targetFilters;
@@ -797,6 +809,7 @@ function handleApplyFilters() {
         targetFilters.categories = newCategories;
         targetFilters.activities = newActivities;
         targetFilters.filterBy = currentFilterBy; // Save context
+        targetFilters.status = filterStatusToggles.querySelector('.filter-status-btn.active').dataset.filterStatus || 'all'; // NEW
         if (typeof renderTrackPage === 'function') renderTrackPage();
     } else { // categories
         targetFilters = currentCategoriesFilters;
@@ -805,6 +818,7 @@ function handleApplyFilters() {
         targetFilters.categories = newCategories;
         targetFilters.activities = newActivities;
         targetFilters.filterBy = currentFilterBy; // Save context
+        // Status filter does not apply to categories page
         if (typeof renderCategoriesPage === 'function') renderCategoriesPage();
     }
     
@@ -885,8 +899,8 @@ function clearAllUserData() {
     // Reset state
     currentTrackView = 'list';
     if (typeof updateTimeRange === 'function') updateTimeRange('today');
-    currentTrackFilters = { types: ['goal', 'task', 'deadline'], activities: [], categories: [] }; // Reset filters
-    currentCategoriesFilters = { types: ['goal'], activities: [], categories: [] };
+    currentTrackFilters = { types: ['goal', 'task', 'deadline'], activities: ['NONE'], categories: [], status: 'all' }; // Reset filters
+    currentCategoriesFilters = { types: ['goal'], activities: ['NONE'], categories: [] };
     trackSearchQuery = '';
     trackSearchBox.value = '';
 
@@ -1072,60 +1086,8 @@ function populateAnalysisFilter() {
     }
 }
 
-// --- Emoji Picker Functions (Old) ---
-const EMOJI_CATEGORIES = [
-    { name: 'Smileys', icon: '😀', emojis: ['😀', '😁', '😂', '🤣', '😃', '😄', '😅', '😆', '😉', '😊', '😋', '😎', '😍', '😘', '🥰', '😗', '😙', '🥲', '🤔', '🤫', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '😮‍💨', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '🥸', '🤓', '🧐', '😕', '😟', '🙁', '😮', '😯', '😲', '😳', '🥺', '😦', '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞', '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿', '💀', '💩', '🤡', '👹', '👺', '👻', '👽', '🤖', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾']},
-    { name: 'People', icon: '👋', emojis: ['👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤌', '🤏', '✌️', '🤞', '🫰', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪', '🦾', '🦵', '🦶', '👂', '🦻', '👃', '🧠', '𫀀', '🦷', '🦴', '👀', '👁️', '👅', '👄', '👶', '🧒', '👦', '👧', '🧑', '👱', '👨', '👩', '🧓', '👴', '👵', '🙍', '🙎', '🙅', '🙆', '💁', '🙋', '🧏', '🙇', '🤦', '🤷', '🧑‍⚕️', '🧑‍🎓', '🧑‍🏫', '🧑‍⚖️', '🧑‍🌾', '🧑‍🍳', '🧑‍🔧', '🧑‍🏭', '🧑‍💼', '🧑‍🔬', '🧑‍💻', '🧑‍🎤', '🧑‍🎨', '🧑‍✈️', '🧑‍🚀', '🧑‍🚒', '👮', '🕵️', '💂', '🥷', '👷', '🤴', '👸', '👳', '👲', '🧕', '🤵', '👰', '🤰', '🤱', '👼', '🎅', '🦸', '🦹', '🧙', '🧚', '🧛', '🧜', '🧝', '🧞', '🧟', '💆', '💇', '🚶', '🧍', '🧎', '🧑‍🦽', '🧑‍🦼', '🏃', '💃', '🕺', '🕴️', '👯', '🧘', '🛀', '🛌', '🫂', '🗣️', '👤', '👥', '👣']},
-    { name: 'Food', icon: '🍎', emojis: ['🍏', '🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', '🥬', '🥒', '🌶️', '𫖑', '🌽', '🥕', '𫒒', '𫀀', '🧅', '🥔', '🍠', '🥐', '🥯', '🍞', '🥖', '🥨', '🧀', '🥚', '🍳', '🧈', '🥞', '🧇', '🥓', '🥩', '🍗', '🍖', '🦴', '🌭', '🍔', '🍟', '🍕', '𫓓', '🥪', '🥙', '🧆', '🌮', '🌯', '𫔔', '🥗', '🥘', '𫕕', '🥫', '🍝', '🍜', '🍲', '🍛', '🍣', '🍱', '🥟', '𦫛', '🍤', '🍙', '🍚', '🍘', '🍥', '🥠', '🥮', '🍢', '🍡', '🍧', '🍨', '🍦', '🍰', '🧁', '🥧', '🍮', '🎂', '🍭', '🍬', '🍫', '🍿', '🍩', '🍪', '🌰', '🥜', '🍯', '🥛', '🍼', '☕', '𫖖', '🍵', '🍶', '🍾', '🍷', '🍸', '🍹', '🍺', '🍻', '🥂', '🥃', '🥤', '🧋', '🧃', '🧉', '🧊', '🥄', '🍴', '🔪', '🏺', '🌍', '🇪🇺', '🇺🇸', '🌏', '🇦🇺']},
-    { name: 'Activities', icon: '⚽', emojis: ['⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', '🥏', '🎱', '🪀', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '🥅', '⛳', '🪁', '🏹', '🎣', '🤿', '🥊', '🥋', '🎽', '🛹', '🛷', '⛸️', '🥌', '🎿', '⛷️', '🏂', '🪂', '🏋️', '🤸', '⛹️', '🤺', '🤾', '🏌️', '🏇', '🧘', '🏄', '🏊', '🤽', '🚣', '🧗', '🚵', '🚴', '🏆', '🥇', '🥈', '🥉', '🏅', '🎗️', '🎫', '🎪', '🤹', '🎭', '🩰', '🎨', '🎬', '🎤', '🎧', '🎼', '🎹', '🥁', '🎷', '🎺', '🎸', '🪕', '🎻', '🎲', '♟️', '🎯', '🎱', '🎮', '🎰', '🧩']},
-    { name: 'Travel', icon: '🚗', emojis: ['🚗', '🚕', '🚙', '🚌', '🚎', '🏎️', '🚓', '🚑', '🚒', '🚐', '🛻', '🚚', '🚛', '🚜', '🚔', '🚍', '🏍️', '🛵', '🦽', '🦼', '🛺', '🚲', '🛴', '🛹', '🛷', '⛸️', '🥌', '🎿', '⛷️', '🏂', '🪂', '🏋️', '🤸', '⛹️', '🤺', '🤾', '🏌️', '🏇', '🧘', '🏄', '🏊', '🤽', '🚣', '🧗', '🚵', '🚴', '🏆', '🥇', '🥈', '🥉', '🏅', '🎗️', '🎫', '🎪', '🤹', '🎭', '🩰', '🎨', '🎬', '🎤', '🎧', '🎼', '🎹', '🥁', '🎷', '🎺', '🎸', '🪕', '🎻', '🎲', '♟️', '🎯', '🎱', '🎮', '🎰', '🧩']},
-    { name: 'Objects', icon: '⌚', emojis: ['⌚', '📱', '💻', '⌨️', '🖥️', '🖨️', '🖱️', '🖲️', '🕹️', '🗜️', '⚙️', '🔧', '🔨', '⚒️', '⛏️', '🔩', '🧱', '🪨', '🪵', '🛖', '🛞', '⚖️', '🦯', '🔗', '⛓️', '🪝', '🧰', '🧲', '🪜', '⚗️', '🧪', '🧫', '🧬', '🔬', '🔭', '📡', '💉', '🩸', '💊', '🩹', '🩺', '🚪', '🛗', '🪞', '🪟', '🛏️', '🛋️', '🪑', '🚽', '🪠', '🚿', '🛁', '🪤', '🪒', '🧴', '🧷', '🧹', '🧺', '🧻', '🪣', '🧼', '🪥', '🧽', '🧯', '🛒', '🚬', '⚰️', '🪦', '⚱️', '🗿', '🪧', '🔮', '🪄', '📿', '💎', '💍', '💄', '💋', '💌', '💘', '💝', '💖', '💗', '💓', '💞', '💕', '💟', '❣️', '💔', '💯', '💢', '💣', '😵', '🤯', '💬', '👁️‍🗨️', '🗨️', '🗯️', '💭', '💤', '💮', '💈', '👓', '🕶️', '🥽', '🥼', '🦺', '👔', '👕', '👖', '🧣', '🧤', '🧥', '🧦', '👗', '👘', '🥻', '🩱', '🩲', '🩳', '👙', '👚', '👛', '👜', '👝', '🎒', '🩴', '👞', '👟', '🥾', '🥿', '👠', '👡', '🩰', '👢', '👑', '👒', '🎩', '🎓', '🧢', '🪖', '⛑️', '🔇', '🔈', '🔉', '🔊', '📢', '📣', '📯', '🔔', '🔕', '🎼', '🎵', '🎶', '💹', '📇', '📈', '📉', '📊', '📋', '📌', '📍', '📎', '🖇️', '📏', '📐', '✂️', '🗃️', '🗂️', '🗑️', '🔒', '🔓', '🔏', '🔐', '🔑', '🗝️', '🔨', '🪓', '⛏️', '⚒️', '🛠️', '🗡️', '⚔️', '🔫', '🪃', '🏹', '🛡️', '🪚', '🔧', '🔩', '🗜️', '⚖️', '🦯', '🔗', '⛓️', '🪝', '🧰', '🧲', '🪜', '⚗️', '🧪', '🧫', '🧬', '🔬', '🔭', '📡', '💉', '🩸', '💊', '🩹', '🩺', '🚪', '🛗', '🪞', '🪟', '🛏️', '🛋️', '🪑', '🚽', '🪠', '🚿', '🛁', '🪤', '🪒', '🧴', '🧷', '🧹', '🧺', '🧻', '🪣', '🧼', '🪥', '🧽', '🧯', '🛒', '🚬', '⚰️', '🪦', '⚱️', '🗿', '🪧', '🎄', '🎆', '🎇', '🧨', '✨', '🎈', '🎉', '🎊', '🎋', '🎍', '🎎', '🎏', '🎐', '🎑', '🧧', '🎀', '🎁']},
-    { name: 'Symbols', icon: '❤️', emojis: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤎', '🤍', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '☮️', '✝️', '☪️', '🕉️', '☸️', '✡️', '🔯', '🕎', '☯️', '☦️', '🛐', '⛎', '♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓', '🆔', '⚛️', '🉑', '☢️', '☣️', '📴', '📳', '🈶', '🈚', '🈸', '🈺', '🈷️', '✴️', '🆚', '💮', '🉐', '㊙️', '㊗️', '🈴', '🈵', '🈹', '🈲', '🅰️', '🅱️', '🆎', '🆑', '🅾️', '🆘', '❌', '⭕', '🛑', '⛔', '📛', '🚫', '💯', '💢', '♨️', '🚷', '🚯', '🚳', '🚱', '🔞', '📵', '🚭', '❗️', '❕', '❓', '❔', '‼️', '⁉️', '🔅', '🔆', '〽️', '⚠️', '🚸', '🔱', '⚜️', '🔰', '♻️', '✅', '🈯', '💹', '❇️', '✳️', '❎', '🌐', '💠', 'Ⓜ️', '🌀', '💤', '🏧', '🚾', '♿', '🅿️', '🛗', '🈳', '🈂️', '🛂', '🛃', '🛄', '🛅', '🛜', '🚰', '🚹', '♂️', '🚺', '♀️', '⚧️', '🚼', '🚻', '🚮', '🎦', '📶', '🈁', '🔣', 'ℹ️', '🔤', '🔡', '🔠', 'F', '🆗', '🆙', '🆒', '🆕', '🆓', '0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟', '🔢', '#️⃣', '*️⃣', '⏏️', '▶️', '⏸️', '⏯️', '⏹️', '⏺️', '⏭️', '⏮️', '⏩', '⏪', '⏫', '⏬', '◀️', '🔼', '🔽', '➡️', '⬅️', '⬆️', '⬇️', '↗️', '↘️', '↙️', '↖️', '↕️', '↔️', '↪️', '↩️', '⤴️', '⤵️', '🔀', '🔁', '🔂', '🔄', '🔃', '🎵', '🎶', '➕', '➖', '➗', '✖️', '🟰', '♾️', '💲', '💱', '™️', '©️', '®️', '🔚', '🔙', '🔛', '🔝', '🔜', '〰️', '➰', '⮐', '✔️', '☑️', '🔘', '🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '⚫', '⚪', '🟤', '🔺', '🔻', '🔼', '🔽', '🔳', '🔲', '▪️', '▫️', '◾', '◽', '◼️', '◻️', '🟥', '🟧', '🟨', '🟩', '🟦', '🟪', '🫘', '⬛', '⬜', '🔶', '🔷', '🔸', '🔹']},
-];
-function populateEmojiPicker() {
-    emojiCategories.innerHTML = '';
-    EMOJI_CATEGORIES.forEach((category, index) => {
-        const isActive = index === 0;
-        emojiCategories.innerHTML += `<button class="emoji-category-btn ${isActive ? 'active' : ''}" data-category="${category.name}" title="${category.icon}">${category.icon}</button>`;
-    });
-    loadEmojiCategory(EMOJI_CATEGORIES[0].name);
-}
-function loadEmojiCategory(categoryName) {
-    const category = EMOJI_CATEGORIES.find(c => c.name === categoryName);
-    const emojis = category ? category.emojis : [];
-    let emojiHtml = '';
-    emojis.forEach(emoji => {
-        if (emoji) { 
-            emojiHtml += `<button class="emoji-btn">${emoji}</button>`;
-        }
-    });
-    emojiGrid.innerHTML = emojiHtml;
-    emojiGrid.scrollTop = 0;
-}
-function handleEmojiCategorySelect(e) {
-    const btn = e.target.closest('.emoji-category-btn');
-    if (!btn) return;
-    document.querySelectorAll('.emoji-category-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    loadEmojiCategory(btn.dataset.category);
-}
-function showEmojiPicker(buttonTarget, valueTarget) {
-    currentEmojiInputTarget = { button: buttonTarget, value: valueTarget };
-    emojiModal.classList.add('active');
-}
-function hideEmojiPicker() {
-    emojiModal.classList.remove('active');
-    currentEmojiInputTarget = null;
-}
-function handleEmojiSelect(e) {
-    const btn = e.target.closest('.emoji-btn');
-    if (btn && currentEmojiInputTarget) {
-        const emoji = btn.textContent;
-        currentEmojiInputTarget.button.textContent = emoji;
-        currentEmojiInputTarget.value.value = emoji;
-        hideEmojiPicker();
-    }
-}
+// REMOVED: All old Emoji Picker functions
+// (EMOJI_CATEGORIES, populateEmojiPicker, loadEmojiCategory, handleEmojiCategorySelect, showEmojiPicker, hideEmojiPicker, handleEmojiSelect)
 
 // --- NEW V24: Icon Picker Functions ---
 const ALL_BOOTSTRAP_ICONS = [ // A subset for performance
