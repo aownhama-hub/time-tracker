@@ -368,10 +368,24 @@ textarea { height: auto; } /* Allow textarea to be different height */
 .modal > div { 
     background-color: var(--bg-secondary); 
     box-shadow: 0 10px 15px -3px rgba(var(--shadow-color-rgb), 0.1), 0 4px 6px -2px rgba(var(--shadow-color-rgb), 0.05); 
-    color: var(--text-primary); /* FIX: Ensure text is primary color for modal titles */
     border-radius: 0.75rem; /* UPDATED: Larger radius */
      border: 1px solid var(--border-color);
 }
+
+/* FIX: Force correct background for all modals except settings, overriding Tailwind */
+#add-item-modal > div,
+#filter-modal > div,
+#add-category-modal > div,
+#time-range-modal > div,
+#icon-picker-modal > div,
+#delete-modal > div,
+#stop-note-modal > div,
+#manual-entry-modal > div,
+#edit-log-modal > div,
+#log-details-modal > div {
+    background-color: var(--bg-secondary) !important; 
+}
+
 
 /* NEW FIX: Explicitly target modal headers to ensure they use primary color in all themes */
 .modal > div h2,
@@ -529,7 +543,7 @@ button { border-radius: 0.5rem; } /* UPDATED: Larger radius */
 }
 #icon-picker-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(3rem, 1fr)); /* Larger tap target */
+    grid-template-columns: repeat(auto-fill, minmax(3.5rem, 1fr)); /* Larger tap target */
     gap: 0.5rem;
     overflow-y: auto;
     max-height: 50vh;
@@ -676,6 +690,7 @@ button:active { transform: scale(0.96); opacity: 0.9; }
 #add-category-modal,
 #settings-modal,
 #icon-picker-modal,
+#time-range-modal,
 #filter-modal { /* ADDED #filter-modal */
     align-items: center; /* Overrides old 'flex-end' */
 }
@@ -683,6 +698,7 @@ button:active { transform: scale(0.96); opacity: 0.9; }
 #add-category-modal > div,
 #settings-modal > div,
 #icon-picker-modal > div,
+#time-range-modal > div,
 #filter-modal > div { /* ADDED #filter-modal > div */
     animation: popIn 0.3s ease-out forwards; /* Use popIn animation */
     border-radius: 0.75rem; /* Standard border radius */
@@ -1221,6 +1237,20 @@ button:active { transform: scale(0.96); opacity: 0.9; }
     box-shadow: 0 2px 4px rgba(var(--link-rgb), 0.2);
 }
 
+/* Filter Status Toggles (Identical to filter-type-btn) */
+.filter-status-btn {
+    color: var(--text-secondary);
+    background-color: var(--bg-button-secondary);
+    border-radius: 0.5rem;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    font-weight: 500;
+}
+.filter-status-btn.active {
+    background-color: var(--link-color);
+    color: var(--link-text);
+    box-shadow: 0 2px 4px rgba(var(--link-rgb), 0.2);
+}
+
 /* Filter Checkbox List Item */
 .filter-checkbox-label {
     display: flex;
@@ -1252,6 +1282,7 @@ button:active { transform: scale(0.96); opacity: 0.9; }
     transition: all 0.2s ease;
     flex-shrink: 0;
     margin-left: 1rem;
+    margin-right: 0.5rem; /* ADDED: right margin */
 }
 .filter-checkbox-label input[type="checkbox"]:checked {
     background-color: var(--link-color);
@@ -1284,8 +1315,11 @@ button:active { transform: scale(0.96); opacity: 0.9; }
 
 /* --- NEW V24 Nav/Filter Buttons (Icon Only) --- */
 #track-time-nav-prev,
+#time-nav-prev,
 #track-time-nav-next,
+#time-nav-next,
 #track-filter-btn,
+#filter-btn,
 #categories-nav-prev,
 #categories-nav-next,
 #categories-filter-btn {
@@ -1299,11 +1333,13 @@ button:active { transform: scale(0.96); opacity: 0.9; }
     justify-content: center;
 }
 #track-time-nav-prev:hover,
+#time-nav-prev:hover,
 #track-time-nav-next:hover,
+#time-nav-next:hover,
 #track-filter-btn:hover,
+#filter-btn:hover,
 #categories-nav-prev:hover,
 #categories-nav-next:hover,
 #categories-filter-btn:hover {
     background-color: var(--bg-accent);
 }
-
