@@ -27,6 +27,8 @@ function renderHomePage() {
 // MODIFIED: Accepts filters object to apply dynamic filtering
 function getTrackPageData(allActivities, allPlannerItems, allLogs, timeRange, searchQuery, filters) {
     const data = [];
+    const now = new Date();
+    const today = getStartOfDate(now);
     
     // 1. Combine Activities (Goals)
     allActivities.forEach((act, id) => {
@@ -34,6 +36,7 @@ function getTrackPageData(allActivities, allPlannerItems, allLogs, timeRange, se
             id: id,
             type: 'goal',
             name: act.name,
+            // REFACTOR: Icon and color are now hardcoded in renderTrackItem
             icon: act.emoji || '套', 
             color: act.color,
             categoryId: act.categoryId || 'uncategorized',
@@ -41,6 +44,8 @@ function getTrackPageData(allActivities, allPlannerItems, allLogs, timeRange, se
             trackedMs: 0, // Will be calculated below
             isCompleted: false, 
             sortOrder: act.order,
+            isOverdue: false, // Goals can't be overdue
+            isNearDeadline: false, // Goals don't have deadlines
             isTrackable: true,
         });
     });
@@ -50,6 +55,18 @@ function getTrackPageData(allActivities, allPlannerItems, allLogs, timeRange, se
         const itemType = item.type;
         const icon = itemType === 'task' ? 'bi-check2-square' : 'bi-calendar-x';
         const color = itemType === 'task' ? '#3B82F6' : '#DC3545';
+        
+        // NEW: Calculate status properties here
+        let isOverdue = false;
+        let isNearDeadline = false;
+        const dueDate = item.dueDate ? getStartOfDate(new Date(item.dueDate)) : null;
+        if (dueDate) {
+            const daysDiff = (dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+            const notifyDaysVal = (item.notifyDays === 'none' || item.notifyDays === '0') ? 0 : parseInt(item.notifyDays, 10);
+            
+            if (daysDiff < 0) isOverdue = true;
+            if (daysDiff >= 0 && daysDiff < notifyDaysVal) isNearDeadline = true;
+        }
         
         data.push({
             id: id,
@@ -69,6 +86,8 @@ function getTrackPageData(allActivities, allPlannerItems, allLogs, timeRange, se
             notifyDays: item.notifyDays || 'none',
             sortOrder: item.createdAt,
             isTrackable: itemType === 'task', 
+            isOverdue: isOverdue,
+            isNearDeadline: isNearDeadline
         });
     });
 
@@ -104,17 +123,36 @@ function getTrackPageData(allActivities, allPlannerItems, allLogs, timeRange, se
         const categoryId = item.categoryId || 'uncategorized';
 
         if (filterBy === 'categories') {
+            // NEW: Handle 'NONE' selection
+            if (filters.categories[0] === 'NONE') return false;
             const categoryMatch = filters.categories.length === 0 || filters.categories.includes(categoryId);
             if (!categoryMatch) return false;
         } else { // filterBy === 'activities'
             // This filter only applies to goals
             if (item.type === 'goal') {
+                // NEW: Handle 'NONE' selection
                 if (filters.activities[0] === 'NONE') return false; // NONE selected
                 const activityMatch = filters.activities.length === 0 || filters.activities.includes(item.id);
                 if (!activityMatch) return false;
             }
         }
         
+        // 6c. Filter by Status (NEW)
+        const status = filters.status || 'all';
+        if (status === 'all') {
+            // no filter
+        } else if (status === 'pending') {
+            if (item.isCompleted) return false;
+        } else if (status === 'completed') {
+            if (!item.isCompleted) return false;
+        } else if (status === 'overdue') {
+            // item.isOverdue is calculated above
+            if (!item.isOverdue || item.isCompleted) return false;
+        } else if (status === 'nearDeadline') {
+            // item.isNearDeadline is calculated above
+            if (!item.isNearDeadline || item.isCompleted) return false;
+        }
+
         return true;
     });
 
@@ -133,12 +171,13 @@ function renderTrackItem(item) {
 
     // --- Category Info ---
     const category = categories.get(item.categoryId) || { name: 'Uncategorized', color: '#808080', iconName: 'bi-tag-fill' };
-    const mainIconContent = `<i class="bi ${category.iconName}"></i>`;
-    const mainIconColor = category.color;
+    // REFACTOR: Default to category, but goal will override
+    let mainIconContent = `<i class="bi ${category.iconName}"></i>`;
+    let mainIconColor = category.color;
 
     // --- Type Icon & Color ---
     let secondaryIconClass = 'bi-bullseye'; // Goal
-    let secondaryIconColor = '#3b82f6'; // Blue
+    let secondaryIconColor = '#3b82f6'; // Blue (Default for Goal)
     let itemBorderColor = secondaryIconColor;
     let dateText = '';
     
@@ -148,11 +187,17 @@ function renderTrackItem(item) {
     let isOverdue = false; // For styling
     
     if (isGoal) {
-        const goalValue = item.goal?.value || 0;
+        // REFACTOR: Hardcode Goal icon and color
+        mainIconContent = `<i class="bi bi-bullseye"></i>`;
+        mainIconColor = '#3b82f6';
+        secondaryIconClass = 'bi-bullseye'; // Already default, but good to be explicit
+        secondaryIconColor = '#3b82f6';
+
+        const goalValue = parseFloat(item.goal?.value) || 0; // FIX: Parse float to prevent NaN
         const trackedHours = item.trackedMs / 3600000; 
         if (goalValue > 0) {
             progressPercent = Math.min(100, (trackedHours / goalValue) * 100);
-            progressText = `${trackedHours.toFixed(1)}h / ${goalValue}h ${item.goal.period}`;
+            progressText = `${trackedHours.toFixed(1)}h / ${goalValue}h ${item.goal.period || ''}`;
         } else {
             progressText = `${formatShortDuration(item.trackedMs)} tracked`;
         }
@@ -160,14 +205,14 @@ function renderTrackItem(item) {
     } else if (isTask) {
         secondaryIconClass = 'bi-check2-square';
         const dueDate = item.dueDate ? getStartOfDate(new Date(item.dueDate)) : null;
-        const notifyDaysVal = (item.notifyDays === 'none' || item.notifyDays === '0') ? 0 : parseInt(item.notifyDays, 10);
+
+        // Use pre-calculated status from getTrackPageData
+        isOverdue = item.isOverdue; 
 
         if (dueDate) {
-            const daysDiff = (dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
-            if (daysDiff < 0) {
-                isOverdue = true;
+            if (isOverdue) {
                 secondaryIconColor = '#dc3545'; // red
-            } else if (daysDiff < notifyDaysVal) {
+            } else if (item.isNearDeadline) {
                 secondaryIconColor = '#ffc107'; // yellow
             } else {
                 secondaryIconColor = '#198754'; // green
@@ -189,13 +234,13 @@ function renderTrackItem(item) {
     } else if (isDeadline) {
         secondaryIconClass = 'bi-calendar-x';
         const dueDate = item.dueDate ? getStartOfDate(new Date(item.dueDate)) : today;
-        const notifyDaysVal = (item.notifyDays === 'none' || item.notifyDays === '0') ? 0 : parseInt(item.notifyDays, 10);
-        const daysDiff = (dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
 
-        if (daysDiff < 0) {
-            isOverdue = true;
+        // Use pre-calculated status
+        isOverdue = item.isOverdue;
+
+        if (isOverdue) {
             secondaryIconColor = '#dc3545'; // red
-        } else if (daysDiff < notifyDaysVal) {
+        } else if (item.isNearDeadline) {
             secondaryIconColor = '#ffc107'; // yellow
         } else {
             secondaryIconColor = '#198754'; // green
@@ -211,7 +256,7 @@ function renderTrackItem(item) {
         secondaryIconColor = '#198754'; // Always green when done
     }
 
-    const startBtnDisabled = currentTimer && currentTimer.activityId !== item.id;
+    const startBtnDisabled = !!currentTimer; // Disable all start buttons if any timer is running
     const completedClass = item.isCompleted ? 'opacity-50' : '';
     const overdueClass = isOverdue && !item.isCompleted ? 'overdue' : ''; // CSS class for overdue items (e.g., red text)
 
@@ -234,7 +279,7 @@ function renderTrackItem(item) {
                     <p>${dateText}</p>
                     ${!isDeadline ? `
                         <div class="track-item-progress-bar">
-                            <div class="track-item-progress-fill" style="width: ${progressPercent}%; background-color: ${mainIconColor}"></div>
+                            <div class="track-item-progress-fill" style="width: ${progressPercent}%; background-color: ${mainIconColor};"></div>
                         </div>
                         <p class="text-xs mt-1">${progressText}</p>
                     ` : `<p class="text-xs mt-1 truncate">${progressText}</p>`}
@@ -709,28 +754,7 @@ function handleGenerateAISummary() {
     */
 }
 
-function showEditActivityModal(activityId) {
-    // Legacy function. All edits should use showAddItemModal(activityId)
-    // This is kept as a stub for compatibility but should be retired.
-    console.log(`Legacy Edit Modal: Attempted to show old modal for ID: ${activityId}. Redirecting to new modal.`);
-    showAddItemModal(activityId);
-}
-function hideEditActivityModal() {
-    editActivityModal.classList.remove('active');
-}
-function handleSaveEditActivity(e) {
-    e.preventDefault();
-    // MODIFICATION: Replaced window.alert
-    console.warn("Legacy Edit Activity form submitted. Please use the new consolidated modal for editing activities/goals.");
-    hideEditActivityModal();
-}
-function handleDeleteActivityFromModal() {
-    // MODIFICATION: Replaced window.alert
-    console.warn("Legacy Delete Activity button clicked. Using new delete flow.");
-    logToDelete = { id: editActivityIdInput.value, type: 'activity' };
-    hideEditActivityModal();
-    showDeleteModal();
-}
+// REMOVED: showEditActivityModal, hideEditActivityModal, handleSaveEditActivity, handleDeleteActivityFromModal
 
 async function handleToggleCompletion(itemId, forceState = null) {
     if (!userId) return;
@@ -772,8 +796,8 @@ function renderCategoriesPage() {
     // Filter all time logs to include only 'activity' (goals) logs within range AND filter criteria
     const logsInRange = allTimeLogs.filter(log => 
         log.startTime >= start.getTime() && 
-        log.startTime <= end.getTime() && 
-        log.timerType !== 'task' // Categories view only concerns activities/goals
+        log.startTime <= end.getTime()
+        // REMOVED: log.timerType !== 'task' (to include task time)
     );
     
     // 3. Calculate totals by Category
@@ -784,11 +808,20 @@ function renderCategoriesPage() {
     const filterBy = currentCategoriesFilters.filterBy || 'categories';
 
     logsInRange.forEach(log => {
-        const activity = activities.get(log.activityId);
-        const categoryId = activity?.categoryId || 'uncategorized';
+        let categoryId = 'uncategorized';
+        let activityId = log.activityId;
+
+        if (log.timerType === 'task') {
+            const task = plannerItems.get(activityId);
+            categoryId = task?.categoryId || 'uncategorized';
+        } else { // 'activity' or legacy
+            const activity = activities.get(activityId);
+            categoryId = activity?.categoryId || 'uncategorized';
+        }
         
         // Apply Category/Activity Filters
         if (filterBy === 'categories') {
+            if (filteredCategories[0] === 'NONE') return; // NEW: Handle 'NONE'
             const categoryMatch = filteredCategories.length === 0 || filteredCategories.includes(categoryId);
             if (!categoryMatch) return;
         } else { // filterBy === 'activities'
@@ -1414,8 +1447,9 @@ function calculateActivityTotals(logs) {
         let category, categoryId;
         
         if (log.timerType === 'task') {
-            categoryId = 'task'; // Group all tasks together
-            category = { name: 'Tasks', color: '#808080' };
+            const task = plannerItems.get(log.activityId);
+            categoryId = task?.categoryId || 'uncategorized';
+            category = categories.get(categoryId) || { name: 'Uncategorized', color: '#808080' };
         } else {
             const activity = activities.get(log.activityId);
             categoryId = activity?.categoryId || 'uncategorized';
@@ -1692,14 +1726,8 @@ function showAddItemModal(itemIdToEdit = null) {
         </div>
 
         <!-- Activity/Goal Fields (Emoji, Color, Category, Goal) - MODIFIED for Emoji Picker -->
+        <!-- REFACTOR: Removed emoji and color pickers for Goal -->
         <div id="form-group-goal" class="space-y-4 hidden">
-            <div class="flex gap-2">
-                <button type="button" id="add-item-emoji-btn" class="emoji-input-btn p-3" title="Select Emoji">
-                    <span id="add-item-emoji-preview">套</span>
-                </button>
-                <input type="hidden" id="add-item-emoji-value" value="套">
-                <input type="color" id="add-item-color" value="#3b82f6" title="Select activity color" class="w-16 h-16">
-            </div>
             <div>
                 <label class="block text-sm font-medium mb-2">Target (Hours)</label>
                 <div class="flex gap-2">
@@ -1733,16 +1761,7 @@ function showAddItemModal(itemIdToEdit = null) {
     `;
 
     // --- 3. Add Event Listeners (must be done *after* innerHTML) ---
-    const addItemEmojiBtn = addItemForm.querySelector('#add-item-emoji-btn');
-    if (addItemEmojiBtn) {
-        addItemEmojiBtn.addEventListener('click', () => {
-             // Use the generic emoji picker for goals/activities
-             showEmojiPicker(
-                addItemForm.querySelector('#add-item-emoji-btn'),
-                addItemForm.querySelector('#add-item-emoji-value')
-             );
-        });
-    }
+    // REFACTOR: Removed addItemEmojiBtn listener
     
     typeButtons.forEach(btn => btn.addEventListener('click', (e) => {
         const type = e.target.dataset.type;
@@ -1797,10 +1816,7 @@ function showAddItemModal(itemIdToEdit = null) {
             // It's a Goal (Activity)
             itemType = 'goal';
             document.getElementById('add-item-name').value = activity.name;
-            const emoji = activity.emoji || '套';
-            document.getElementById('add-item-emoji-preview').textContent = emoji;
-            document.getElementById('add-item-emoji-value').value = emoji;
-            document.getElementById('add-item-color').value = activity.color || '#3b82f6';
+            // REFACTOR: Emoji/color are no longer editable here
             document.getElementById('add-item-category').value = activity.categoryId || 'uncategorized';
             document.getElementById('add-item-goal-value').value = activity.goal?.value || '';
             document.getElementById('add-item-goal-period').value = activity.goal?.period || 'none';
@@ -1877,9 +1893,9 @@ async function handleAddItem(e) {
         if (type === 'goal') {
             const newActivity = {
                 name: name,
-                // MODIFICATION: Retrieve emoji and color inputs from new/old elements
-                emoji: document.getElementById('add-item-emoji-value').value || '套',
-                color: document.getElementById('add-item-color').value,
+                // REFACTOR: Hardcode emoji and color for Goals
+                emoji: 'bi-bullseye',
+                color: '#3b82f6',
                 categoryId: document.getElementById('add-item-category').value,
                 goal: {
                     value: parseFloat(document.getElementById('add-item-goal-value').value) || 0,
